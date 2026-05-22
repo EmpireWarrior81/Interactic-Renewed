@@ -7,7 +7,9 @@
 [![release](https://img.shields.io/github/v/release/EmpireWarrior81/Interactic-Renewed?logo=github&style=for-the-badge)](https://github.com/EmpireWarrior81/Interactic-Renewed/releases)
 -->
 
-A maintained fork of [Interactic](https://github.com/glisco03/interactic) by glisco, updated to Minecraft 1.20.1 with several bug fixes and improvements.
+A maintained fork of [Interactic](https://github.com/glisco03/interactic) by glisco, updated to Minecraft 1.21.1 with bug fixes and improvements.
+
+> **Other versions:** [1.20.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/master)
 
 ## Features
 
@@ -19,40 +21,47 @@ All features can be individually toggled in the config.
 - **Item Throwing** — Hold the drop key to throw items. The longer you hold, the further you throw. Items with a damage modifier (swords, axes) deal damage on hit.
 - **Client-Only Mode** — Automatically disables all server-side features, giving you only the enhanced rendering and tooltips.
 
-## Changes from the original (1.20 → 1.20.1)
+## Changes from 1.20.1 → 1.21.1
 
-### Bug Fixes
+### API Migrations
 
-- **ItemFilter slot removal ignored the amount parameter** — always deleted the entire stack regardless of how many were requested. Fixed to use `Inventories.splitStack()` so partial removals work correctly.
-- **ItemFilter inventory changes were not saved** — `removeStack()` never called `markDirty()`, so changes could be lost on reload. Fixed.
-- **Deprecated block outline shape API** — called `Block.getOutlineShape()` directly, which is deprecated in 1.20.1. Fixed to call `BlockState.getOutlineShape()`.
-- **Mixin compatibility level was wrong** — `interactic.mixins.json` declared `JAVA_16`. Corrected to `JAVA_17`.
-- **Item filter UI always registered on startup** — `HandledScreens.register` and networking ran unconditionally. Now only runs when the item filter feature is enabled in config.
+- **Networking rewritten** — `PacketByteBufs` removed. All packets migrated to `CustomPayload` records with `PacketCodec` (4 new payload classes).
+- **Item data migrated to DataComponents** — `ItemStack.getOrCreateNbt()` replaced throughout with `DataComponentTypes.CUSTOM_DATA` + `NbtComponent`.
+- **ItemFilter inventory serialization rewritten** — `Inventories.readNbt/writeNbt` replaced with custom read/write using item registry IDs, compatible with 1.21.1.
+- **Attribute API updated** — `ItemStack.getAttributeModifiers()` replaced with `stack.get(DataComponentTypes.ATTRIBUTE_MODIFIERS)`. `Operation.ADDITION` renamed to `Operation.ADD_VALUE`.
+- **Player reach distance updated** — `ClientPlayerInteractionManager.getReachDistance()` replaced with `EntityAttributes.PLAYER_ENTITY_INTERACTION_RANGE`.
+- **Identifier API updated** — `new Identifier(namespace, path)` replaced with `Identifier.of(namespace, path)` everywhere.
 
-### Code Improvements
+### Rendering Changes
 
-- Unsafe cast in item raycasting replaced with safe `instanceof` pattern matching.
-- Auto-pickup logic rewritten for clarity.
+- **InGameHud mixin updated** — `renderCrosshair` signature now includes `RenderTickCounter`. Tooltip rendering adjusted for 1.21.1 `TooltipContext` and `TooltipType` API.
+- **Item renderer shadow removed** — `getRenderedAmount(ItemStack)` was renamed in 1.21.1. Logic inlined directly.
+- **Frame duration tracking rewritten** — `MinecraftClient.getLastFrameDuration()` removed. Replaced with a `WorldRenderEvents.START` hook that tracks frame time via `Util.getMeasuringTimeMs()`.
+
+### UI Changes
+
+- **ItemFilter screen buttons updated** — `TexturedButtonWidget` constructor changed. Replaced with `ButtonWidget.builder()`.
+- **Screen background rendering updated** — `renderBackground(context)` now requires mouse coordinates.
 
 ### Compatibility Updates
 
-- Updated to Minecraft 1.20.1
-- Fabric Loader >= 0.19.1
-- Fabric API 0.92.7+1.20.1
-- owo-lib 0.11.2+1.20
-- ModMenu 7.2.2
-- Java 17
+- Updated to Minecraft 1.21.1
+- Fabric Loader >= 0.19.2
+- Fabric API 0.116.12+1.21.1
+- owo-lib 0.12.15.4+1.21
+- ModMenu 11.0.4
+- Java 21
 
 ## Dependencies
 
-- [Fabric Loader](https://fabricmc.net/use/installer/) >= 0.19.1
+- [Fabric Loader](https://fabricmc.net/use/installer/) >= 0.19.2
 - [Fabric API](https://modrinth.com/mod/fabric-api)
-- [owo-lib](https://modrinth.com/mod/owo-lib) >= 0.11.2
+- [owo-lib](https://modrinth.com/mod/owo-lib) >= 0.12.15
 
 ## Credits
 
 - [glisco](https://github.com/glisco03) — original Interactic mod
-- [EmpireWarrior](https://github.com/EmpireWarrior81) — 1.20.1 port and bug fixes
+- [EmpireWarrior](https://github.com/EmpireWarrior81) — 1.20.1 port, bug fixes, and 1.21.1 update
 
 ## License
 
