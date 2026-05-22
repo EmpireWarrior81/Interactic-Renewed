@@ -9,6 +9,8 @@
 
 A maintained fork of [Interactic](https://github.com/glisco03/interactic) by glisco, updated to Minecraft 1.20.1 with several bug fixes and improvements.
 
+> **Other versions:** [1.21.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.x)
+
 ## Features
 
 All features can be individually toggled in the config.
