@@ -1,60 +1,83 @@
 # Interactic Renewed
 
 <!-- Badges will be added once the mod is published on Modrinth, CurseForge, and GitHub Releases -->
-<!-- 
+<!--
+[![modrinth](https://img.shields.io/badge/-modrinth-gray?style=for-the-badge&labelColor=green&logo=modrinth&logoColor=white)](https://modrinth.com/mod/interactic-renewed)
 [![curseforge](https://img.shields.io/badge/-CurseForge-gray?style=for-the-badge&logo=curseforge&labelColor=orange)](https://www.curseforge.com/minecraft/mc-mods/interactic-renewed)
-[![modrinth](https://img.shields.io/badge/-modrinth-gray?style=for-the-badge&labelColor=green&labelWidth=15&logo=appveyor&logoColor=white)](https://modrinth.com/mod/interactic-renewed)
 [![release](https://img.shields.io/github/v/release/EmpireWarrior81/Interactic-Renewed?logo=github&style=for-the-badge)](https://github.com/EmpireWarrior81/Interactic-Renewed/releases)
 -->
 
-A maintained fork of [Interactic](https://github.com/glisco03/interactic) by glisco, updated to Minecraft 1.20.1 with several bug fixes and improvements.
+A maintained fork of [Interactic](https://modrinth.com/mod/interactic) by glisco — bringing the beloved item interaction mod to modern Minecraft with bug fixes and continued support.
 
-> **Other versions:** [1.21.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.x)
+**This branch targets Minecraft 1.20.1.** — [Switch to 1.21.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.1)
 
-## Features
+---
 
-All features can be individually toggled in the config.
+## What does it do?
 
-- **Fancy Item Rendering** — Items spin while falling, at changing speed depending on how fast they fall. When on the ground they lay flat and compact stacks.
-- **Enhanced Pickup and Tooltips** — Pick up items by right-clicking them, even from a few blocks away. When looking at one, its tooltip is rendered below your crosshair.
-- **Item Filter** — An item that lets you control which items you want to automatically pick up. Supports white- and blacklists. Items on the list require explicit pickup via right-click or sneaking.
-- **Item Throwing** — Hold the drop key to throw items. The longer you hold, the further you throw. Items with a damage modifier (swords, axes) deal damage on hit.
-- **Client-Only Mode** — Automatically disables all server-side features, giving you only the enhanced rendering and tooltips.
+Interactic Renewed enhances how items behave in the world, making them feel more alive and giving you better control over pickup and throwing.
 
-## Changes from the original (1.20 → 1.20.1)
+### Fancy Item Rendering
+Items spin as they fall, rotating faster the quicker they drop. Once they land, they lay flat on the ground instead of floating and spinning in place. Stacked items are displayed compactly on top of each other.
 
-### Bug Fixes
+### Enhanced Pickup
+Right-click any item on the ground to pick it up — even from a few blocks away. No more walking back and forth to grab that one item you dropped.
 
-- **ItemFilter slot removal ignored the amount parameter** — always deleted the entire stack regardless of how many were requested. Fixed to use `Inventories.splitStack()` so partial removals work correctly.
-- **ItemFilter inventory changes were not saved** — `removeStack()` never called `markDirty()`, so changes could be lost on reload. Fixed.
-- **Deprecated block outline shape API** — called `Block.getOutlineShape()` directly, which is deprecated in 1.20.1. Fixed to call `BlockState.getOutlineShape()`.
-- **Mixin compatibility level was wrong** — `interactic.mixins.json` declared `JAVA_16`. Corrected to `JAVA_17`.
-- **Item filter UI always registered on startup** — `HandledScreens.register` and networking ran unconditionally. Now only runs when the item filter feature is enabled in config.
+### Item Tooltips
+When you look at an item lying on the ground, its name (and optionally full tooltip) appears just below your crosshair. You always know what you're looking at before picking it up.
 
-### Code Improvements
+### Item Filter
+A craftable item that lets you control exactly which items you automatically pick up. Switch between:
+- **Whitelist mode** — only auto-pick the items on the list
+- **Blacklist mode** — auto-pick everything *except* items on the list
 
-- Unsafe cast in item raycasting replaced with safe `instanceof` pattern matching.
-- Auto-pickup logic rewritten for clarity.
+Items blocked by the filter can still be picked up manually by right-clicking or sneaking.
 
-### Compatibility Updates
+### Item Throwing
+Hold the drop key (Q by default) to charge a throw. The longer you hold, the further the item flies. Items with attack damage modifiers — like swords and axes — deal damage on impact.
 
-- Updated to Minecraft 1.20.1
-- Fabric Loader >= 0.19.1
-- Fabric API 0.92.7+1.20.1
-- owo-lib 0.11.2+1.20
-- ModMenu 7.2.2
-- Java 17
+### Client-Only Mode
+All server-side features disable automatically when playing on a server without the mod. You keep the fancy rendering and item tooltips everywhere.
 
-## Dependencies
+> All features can be individually toggled in the config menu.
 
+---
+
+## Why Renewed?
+
+The original [Interactic](https://modrinth.com/mod/interactic) by glisco is no longer updated. Interactic Renewed picks up where it left off:
+
+- **Updated to modern Minecraft** — actively maintained for 1.20.1 and 1.21.1
+- **ItemFilter inventory fixed** — items in the filter were sometimes lost on reload. Fixed.
+- **Partial stack removal fixed** — removing items from the filter always deleted the full stack regardless of how many were requested. Fixed.
+- **Deprecated API cleaned up** — several outdated API calls that could cause issues on newer Fabric versions have been replaced.
+- **Mixin stability improved** — fixed wrong compatibility level declarations that could cause subtle issues.
+- **Item filter UI fixed** — the filter screen and networking no longer register unconditionally on startup.
+
+---
+
+## Supported Versions
+
+| Minecraft | Branch | Status |
+|-----------|--------|--------|
+| 1.21.1 | [1.21.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.1) | Active |
+| 1.20.1 | [master](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/master) / [1.20.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.20.1) | Active |
+
+---
+
+## Installation
+
+**Required:**
 - [Fabric Loader](https://fabricmc.net/use/installer/) >= 0.19.1
 - [Fabric API](https://modrinth.com/mod/fabric-api)
 - [owo-lib](https://modrinth.com/mod/owo-lib) >= 0.11.2
 
+---
+
 ## Credits
 
 - [glisco](https://github.com/glisco03) — original Interactic mod
-- [EmpireWarrior](https://github.com/EmpireWarrior81) — 1.20.1 port and bug fixes
+- [EmpireWarrior](https://github.com/EmpireWarrior81) — Interactic Renewed (fork, bug fixes, updates)
 
 ## License
 
