@@ -1,11 +1,7 @@
 # Interactic Renewed
 
-<!-- Badges will be added once the mod is published on Modrinth, CurseForge, and GitHub Releases -->
-<!--
 [![modrinth](https://img.shields.io/badge/-modrinth-gray?style=for-the-badge&labelColor=green&logo=modrinth&logoColor=white)](https://modrinth.com/mod/interactic-renewed)
-[![curseforge](https://img.shields.io/badge/-CurseForge-gray?style=for-the-badge&logo=curseforge&labelColor=orange)](https://www.curseforge.com/minecraft/mc-mods/interactic-renewed)
 [![release](https://img.shields.io/github/v/release/EmpireWarrior81/Interactic-Renewed?logo=github&style=for-the-badge)](https://github.com/EmpireWarrior81/Interactic-Renewed/releases)
--->
 
 A maintained fork of [Interactic](https://modrinth.com/mod/interactic) by glisco — bringing the beloved item interaction mod to modern Minecraft with bug fixes and continued support.
 
