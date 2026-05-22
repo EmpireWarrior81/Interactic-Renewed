@@ -9,9 +9,9 @@
     "glisco (original)"
   ],
   "contact": {
-    "homepage": "https://github.com/EmpireWarrior/interactic-renewed",
-    "sources": "https://github.com/EmpireWarrior/interactic-renewed",
-    "issues": "https://github.com/EmpireWarrior/interactic-renewed/issues"
+    "homepage": "https://github.com/EmpireWarrior81/Interactic-Renewed",
+    "sources": "https://github.com/EmpireWarrior81/Interactic-Renewed",
+    "issues": "https://github.com/EmpireWarrior81/Interactic-Renewed/issues"
   },
   "license": "MIT",
   "icon": "assets/interactic/icon.png",
@@ -31,7 +31,7 @@
     "modmenu": {}
   },
   "depends": {
-    "fabricloader": ">=0.19.1",
+    "fabricloader": ">=0.19.2",
     "fabric": "*",
     "minecraft": "~1.21.1",
     "java": ">=21",
