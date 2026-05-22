@@ -1,21 +1,20 @@
 package interactic;
 
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventories;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroups;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.screen.ScreenHandler;
-import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
@@ -31,7 +30,8 @@ public class ItemFilterItem extends Item {
 
     static {
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> {
-            entries.add(InteracticInit.getItemFilter());
+            var filter = InteracticInit.getItemFilter();
+            if (filter != null) entries.add(filter);
         });
     }
 
@@ -43,9 +43,10 @@ public class ItemFilterItem extends Item {
     public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
         final var playerStack = user.getStackInHand(hand);
         if (user.isSneaking()) {
-            var enabled = playerStack.getOrCreateNbt().getBoolean("Enabled");
-            enabled = !enabled;
-            playerStack.getOrCreateNbt().putBoolean("Enabled", enabled);
+            var nbt = playerStack.getOrDefault(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT).copyNbt();
+            var enabled = nbt.getBoolean("Enabled");
+            nbt.putBoolean("Enabled", !enabled);
+            playerStack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
         } else {
             if (world.isClient) return TypedActionResult.success(playerStack);
             final var inv = new FilterInventory(playerStack);
@@ -61,15 +62,17 @@ public class ItemFilterItem extends Item {
                 }
             };
             user.openHandledScreen(factory);
-            final var buf = PacketByteBufs.create();
-            buf.writeBoolean(inv.getFilterMode());
-            ServerPlayNetworking.send((ServerPlayerEntity) user, new Identifier(InteracticInit.MOD_ID, "set_filter_mode"), buf);
+
+            var handler = (ItemFilterScreenHandler) user.currentScreenHandler;
+            handler.setFilterMode(inv.getFilterMode());
         }
         return TypedActionResult.success(playerStack);
     }
 
     public static List<Item> getItemsInFilter(ItemStack stack) {
-        final var invTag = stack.getOrCreateNbt().getList("Items", NbtElement.COMPOUND_TYPE);
+        var data = stack.get(DataComponentTypes.CUSTOM_DATA);
+        if (data == null) return List.of();
+        final var invTag = data.copyNbt().getList("Items", NbtElement.COMPOUND_TYPE);
 
         return invTag.stream()
                 .map(s -> Registries.ITEM.getOrEmpty(Identifier.tryParse(((NbtCompound) s).getString("id"))).orElse(null))
@@ -84,15 +87,34 @@ public class ItemFilterItem extends Item {
 
         public FilterInventory(ItemStack filter) {
             this.filter = filter;
-            Inventories.readNbt(filter.getOrCreateNbt(), items);
+            readItems();
+        }
+
+        private void readItems() {
+            var data = filter.get(DataComponentTypes.CUSTOM_DATA);
+            if (data == null) return;
+            var invTag = data.copyNbt().getList("Items", NbtElement.COMPOUND_TYPE);
+            for (int i = 0; i < invTag.size(); i++) {
+                var compound = (NbtCompound) invTag.get(i);
+                int slot = compound.getByte("Slot") & 0xFF;
+                if (slot < items.size()) {
+                    var id = Identifier.tryParse(compound.getString("id"));
+                    if (id != null) {
+                        Registries.ITEM.getOrEmpty(id).ifPresent(item -> items.set(slot, new ItemStack(item)));
+                    }
+                }
+            }
         }
 
         public void setFilterMode(boolean mode) {
-            filter.getOrCreateNbt().putBoolean("BlockMode", mode);
+            var nbt = filter.getOrDefault(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT).copyNbt();
+            nbt.putBoolean("BlockMode", mode);
+            filter.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
         }
 
         public boolean getFilterMode() {
-            return filter.getOrCreateNbt().getBoolean("BlockMode");
+            var data = filter.get(DataComponentTypes.CUSTOM_DATA);
+            return data != null && data.copyNbt().getBoolean("BlockMode");
         }
 
         @Override
@@ -112,8 +134,13 @@ public class ItemFilterItem extends Item {
 
         @Override
         public ItemStack removeStack(int slot, int amount) {
-            // Bug fix: original ignored `amount` and always removed the whole stack
-            var result = Inventories.splitStack(items, slot, amount);
+            var result = items.get(slot).copy();
+            if (amount >= result.getCount()) {
+                items.set(slot, ItemStack.EMPTY);
+            } else {
+                result.setCount(amount);
+                items.get(slot).decrement(amount);
+            }
             if (!result.isEmpty()) markDirty();
             return result;
         }
@@ -133,7 +160,19 @@ public class ItemFilterItem extends Item {
 
         @Override
         public void markDirty() {
-            Inventories.writeNbt(filter.getOrCreateNbt(), items);
+            var nbt = filter.getOrDefault(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT).copyNbt();
+            var itemsTag = new NbtList();
+            for (int i = 0; i < items.size(); i++) {
+                var stack = items.get(i);
+                if (!stack.isEmpty()) {
+                    var compound = new NbtCompound();
+                    compound.putByte("Slot", (byte) i);
+                    compound.putString("id", Registries.ITEM.getId(stack.getItem()).toString());
+                    itemsTag.add(compound);
+                }
+            }
+            nbt.put("Items", itemsTag);
+            filter.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
         }
 
         @Override

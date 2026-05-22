@@ -3,12 +3,12 @@ package interactic.util;
 import interactic.InteracticInit;
 import interactic.ItemFilterItem;
 import interactic.mixin.PlayerInventoryAccessor;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.Vec3d;
@@ -17,7 +17,7 @@ import java.util.Collection;
 
 public class Helpers {
 
-    public static ItemEntity raycastItem(Entity camera, float reach) {
+    public static ItemEntity raycastItem(Entity camera, double reach) {
         Vec3d normalizedFacing = camera.getRotationVec(1.0F);
         Vec3d denormalizedFacing = camera.getCameraPosVec(0).add(normalizedFacing.x * reach, normalizedFacing.y * reach, normalizedFacing.z * reach);
 
@@ -49,8 +49,10 @@ public class Helpers {
         if (filterOptional.isEmpty()) return true;
 
         final ItemStack filterStack = filterOptional.get();
-        final NbtCompound filterNbt = filterStack.getOrCreateNbt();
+        var filterData = filterStack.get(DataComponentTypes.CUSTOM_DATA);
+        if (filterData == null) return true;
 
+        var filterNbt = filterData.copyNbt();
         if (!filterNbt.getBoolean("Enabled")) return true;
 
         return filterNbt.getBoolean("BlockMode") != ItemFilterItem.getItemsInFilter(filterStack).contains(item.getStack().getItem());

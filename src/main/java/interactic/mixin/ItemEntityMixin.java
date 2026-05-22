@@ -4,6 +4,7 @@ import interactic.InteracticInit;
 import interactic.util.Helpers;
 import interactic.util.InteracticItemExtensions;
 import interactic.util.ItemDamageSource;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.*;
 import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -81,23 +82,34 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
         if (this.isOnGround()) this.wasThrown = false;
         if (!this.wasThrown) return;
 
-        final var hasDamageModifiers = this.getStack().getAttributeModifiers(EquipmentSlot.MAINHAND).containsKey(EntityAttributes.GENERIC_ATTACK_DAMAGE);
+        var component = this.getStack().get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
+        boolean hasDamageModifiers = component != null && component.modifiers().stream()
+                .anyMatch(e -> e.attribute().equals(EntityAttributes.GENERIC_ATTACK_DAMAGE));
+
         if (!(this.wasFullPower || hasDamageModifiers)) return;
 
-        final double damage = hasDamageModifiers ? this.getStack().getAttributeModifiers(EquipmentSlot.MAINHAND).get(EntityAttributes.GENERIC_ATTACK_DAMAGE)
-                .stream().filter(modifier -> modifier.getOperation() == EntityAttributeModifier.Operation.ADDITION)
-                .mapToDouble(EntityAttributeModifier::getValue).sum() : 2;
+        final double damage = hasDamageModifiers
+                ? component.modifiers().stream()
+                        .filter(e -> e.attribute().equals(EntityAttributes.GENERIC_ATTACK_DAMAGE)
+                                && e.modifier().operation() == EntityAttributeModifier.Operation.ADD_VALUE)
+                        .mapToDouble(e -> e.modifier().value()).sum()
+                : 2;
 
         final var entities = world.getNonSpectatingEntities(LivingEntity.class, this.getBoundingBox().expand(0.15));
-        if (entities.size() < 1) return;
+        if (entities.isEmpty()) return;
 
-        final var target = entities.get(0);
+        final var target = entities.getFirst();
         final var damageSource = new ItemDamageSource((ItemEntity) (Object) this, this.getOwner());
 
         if (target.hurtTime != 0 || target.isInvulnerableTo(damageSource)) return;
 
         target.damage(damageSource, (float) damage);
-        if (this.getStack().damage(1, world.getRandom(), null)) this.discard();
+
+        var stack = this.getStack();
+        if (stack.isDamageable()) {
+            stack.setDamage(stack.getDamage() + 1);
+            if (stack.getDamage() >= stack.getMaxDamage()) this.discard();
+        }
     }
 
     @Override

@@ -2,6 +2,7 @@ package interactic.mixin;
 
 import interactic.InteracticInit;
 import interactic.util.InteracticItemExtensions;
+import interactic.util.InteracticRenderState;
 import net.minecraft.block.ShapeContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.OverlayTexture;
@@ -44,9 +45,6 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
     @Final
     private ItemRenderer itemRenderer;
 
-    @Shadow
-    protected abstract int getRenderedAmount(ItemStack stack);
-
     private ItemEntityRendererMixin(EntityRendererFactory.Context dispatcher) {
         super(dispatcher);
     }
@@ -70,7 +68,8 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
         matrices.push();
 
         BakedModel bakedModel = this.itemRenderer.getModel(itemStack, entity.getWorld(), null, seed);
-        final int renderCount = this.getRenderedAmount(itemStack);
+        int stackCount = itemStack.getCount();
+        final int renderCount = stackCount > 48 ? 5 : stackCount > 32 ? 4 : stackCount > 16 ? 3 : stackCount > 1 ? 2 : 1;
         InteracticItemExtensions rotator = (InteracticItemExtensions) entity;
 
         final var item = entity.getStack().getItem();
@@ -107,7 +106,7 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
 
         // Calculate rotation based on velocity or get the one the item had before it hit the ground
         if (rotator.getRotation() == -1) rotator.setRotation((random.nextInt(20) - 10) * 0.15f);
-        float angle = entity.isOnGround() ? rotator.getRotation() : (float) (rotator.getRotation() + ((MathHelper.clamp(entity.getVelocity().y * 0.25, 0.075, 0.3))) * (entity.isSubmergedInWater() ? 0.25f : 1) * (MinecraftClient.getInstance().getLastFrameDuration() * 5) * InteracticInit.getItemRotationSpeedMultiplier());
+        float angle = entity.isOnGround() ? rotator.getRotation() : (float) (rotator.getRotation() + ((MathHelper.clamp(entity.getVelocity().y * 0.25, 0.075, 0.3))) * (entity.isSubmergedInWater() ? 0.25f : 1) * (InteracticRenderState.frameDuration * 5) * InteracticInit.getItemRotationSpeedMultiplier());
 
         // Make sure the angle never exceeds two pi
         if (angle >= TWO_PI) angle -= TWO_PI;
