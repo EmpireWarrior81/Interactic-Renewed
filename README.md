@@ -1,4 +1,4 @@
-# Panta
+# Interactic Renewed
 
 ## Setup
 
