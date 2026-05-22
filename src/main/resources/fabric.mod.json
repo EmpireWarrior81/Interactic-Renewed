@@ -3,7 +3,7 @@
   "id": "interactic",
   "version": "${version}",
   "name": "Interactic Renewed",
-  "description": "A maintained fork of Interactic — fancy item animations, throwing, enhanced pickup and more. Updated to 1.21.1 with bug fixes.",
+  "description": "A maintained fork of Interactic — fancy item animations, throwing, enhanced pickup and more. Updated to 1.21.4 with bug fixes.",
   "authors": [
     "EmpireWarrior",
     "glisco (original)"
@@ -33,8 +33,8 @@
   "depends": {
     "fabricloader": ">=0.19.2",
     "fabric": "*",
-    "minecraft": "~1.21.1",
+    "minecraft": "~1.21.4",
     "java": ">=21",
-    "owo": ">=0.12.15"
+    "owo": ">=0.12.19"
   }
 }

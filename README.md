@@ -5,7 +5,7 @@
 
 A maintained fork of [Interactic](https://modrinth.com/mod/interactic) by glisco — bringing the beloved item interaction mod to modern Minecraft with bug fixes and continued support.
 
-**This branch targets Minecraft 1.21.1.** — [Switch to 1.20.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.20.1)
+**This branch targets Minecraft 1.21.4.** — [Switch to 1.21.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.1) | [Switch to 1.20.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.20.1)
 
 ---
 
@@ -56,6 +56,7 @@ The original [Interactic](https://modrinth.com/mod/interactic) by glisco is no l
 
 | Minecraft | Branch | Status |
 |-----------|--------|--------|
+| 1.21.4 | [1.21.4](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.4) | Active |
 | 1.21.1 | [1.21.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.1) | Active |
 | 1.20.1 | [master](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/master) / [1.20.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.20.1) | Active |
 
@@ -66,7 +67,7 @@ The original [Interactic](https://modrinth.com/mod/interactic) by glisco is no l
 **Required:**
 - [Fabric Loader](https://fabricmc.net/use/installer/) >= 0.19.2
 - [Fabric API](https://modrinth.com/mod/fabric-api)
-- [owo-lib](https://modrinth.com/mod/owo-lib) >= 0.12.15
+- [owo-lib](https://modrinth.com/mod/owo-lib) >= 0.12.19
 
 ---
 
