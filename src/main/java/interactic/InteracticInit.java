@@ -1,9 +1,14 @@
 package interactic;
 
+import interactic.network.DropWithPowerPayload;
+import interactic.network.FilterModeRequestPayload;
+import interactic.network.PickupPayload;
+import interactic.network.SetFilterModePayload;
 import interactic.util.Helpers;
 import interactic.util.InteracticConfig;
 import interactic.util.InteracticPlayerExtension;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.entity.player.PlayerEntity;
@@ -26,13 +31,17 @@ public class InteracticInit implements ModInitializer {
     private static float itemRotationSpeedMultiplier = 1f;
 
     public static final ScreenHandlerType<ItemFilterScreenHandler> ITEM_FILTER_SCREEN_HANDLER =
-            Registry.register(Registries.SCREEN_HANDLER, new Identifier(MOD_ID, "item_filter"), new ScreenHandlerType<>(ItemFilterScreenHandler::new, FeatureFlags.DEFAULT_ENABLED_FEATURES));
+            Registry.register(Registries.SCREEN_HANDLER, Identifier.of(MOD_ID, "item_filter"), new ScreenHandlerType<>(ItemFilterScreenHandler::new, FeatureFlags.DEFAULT_ENABLED_FEATURES));
 
     @Override
     public void onInitialize() {
+        PayloadTypeRegistry.playC2S().register(PickupPayload.ID, PickupPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(DropWithPowerPayload.ID, DropWithPowerPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(FilterModeRequestPayload.ID, FilterModeRequestPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(SetFilterModePayload.ID, SetFilterModePayload.CODEC);
+
         CONFIG.subscribeToClientOnlyMode(clientOnlyMode -> {
             if (!clientOnlyMode) return;
-
             CONFIG.itemsActAsProjectiles(false);
             CONFIG.itemThrowing(false);
             CONFIG.itemFilterEnabled(false);
@@ -49,20 +58,21 @@ public class InteracticInit implements ModInitializer {
         if (FabricLoader.getInstance().isModLoaded("iris")) itemRotationSpeedMultiplier = 0.5f;
 
         if (CONFIG.itemFilterEnabled()) {
-            ITEM_FILTER = Registry.register(Registries.ITEM, new Identifier(MOD_ID, "item_filter"), new ItemFilterItem());
+            ITEM_FILTER = Registry.register(Registries.ITEM, Identifier.of(MOD_ID, "item_filter"), new ItemFilterItem());
 
-            ServerPlayNetworking.registerGlobalReceiver(new Identifier(MOD_ID, "filter_mode_request"), (server, player, handler, buf, responseSender) -> {
-                final boolean newMode = buf.readBoolean();
-                server.execute(() -> {
+            ServerPlayNetworking.registerGlobalReceiver(FilterModeRequestPayload.ID, (payload, context) -> {
+                context.server().execute(() -> {
+                    var player = context.player();
                     if (!(player.currentScreenHandler instanceof ItemFilterScreenHandler filterHandler)) return;
-                    filterHandler.setFilterMode(newMode);
+                    filterHandler.setFilterMode(payload.mode());
                 });
             });
         }
 
         if (CONFIG.rightClickPickup()) {
-            ServerPlayNetworking.registerGlobalReceiver(new Identifier(MOD_ID, "pickup"), (server, player, handler, buf, responseSender) -> {
-                server.execute(() -> {
+            ServerPlayNetworking.registerGlobalReceiver(PickupPayload.ID, (payload, context) -> {
+                context.server().execute(() -> {
+                    var player = context.player();
                     final var item = Helpers.raycastItem(player.getCameraEntity(), 6);
                     if (item == null) return;
 
@@ -75,17 +85,15 @@ public class InteracticInit implements ModInitializer {
         }
 
         if (CONFIG.itemThrowing()) {
-            ServerPlayNetworking.registerGlobalReceiver(new Identifier(MOD_ID, "drop_with_power"), (server, player, handler, buf, responseSender) -> {
-                final float power = buf.readFloat();
-                final boolean dropAll = buf.readBoolean();
-                server.execute(() -> {
-                    ((InteracticPlayerExtension) player).setDropPower(power);
-                    dropSelected(player, dropAll);
+            ServerPlayNetworking.registerGlobalReceiver(DropWithPowerPayload.ID, (payload, context) -> {
+                context.server().execute(() -> {
+                    var player = context.player();
+                    ((InteracticPlayerExtension) player).setDropPower(payload.power());
+                    dropSelected(player, payload.dropAll());
                 });
             });
         }
     }
-
 
     public static Item getItemFilter() {
         return ITEM_FILTER;

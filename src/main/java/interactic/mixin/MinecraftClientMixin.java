@@ -2,10 +2,11 @@ package interactic.mixin;
 
 import interactic.InteracticClientInit;
 import interactic.InteracticInit;
+import interactic.network.DropWithPowerPayload;
+import interactic.network.PickupPayload;
 import interactic.util.Helpers;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -13,9 +14,9 @@ import net.minecraft.client.network.ClientPlayerInteractionManager;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -56,8 +57,8 @@ public class MinecraftClientMixin {
         if (!InteracticInit.getConfig().rightClickPickup()) return;
         if (KeyBindingHelper.getBoundKeyOf(InteracticClientInit.PICKUP_ITEM) != InputUtil.UNKNOWN_KEY) return;
 
-        if (Helpers.raycastItem(cameraEntity, interactionManager.getReachDistance()) == null) return;
-        ClientPlayNetworking.send(new Identifier(InteracticInit.MOD_ID, "pickup"), PacketByteBufs.empty());
+        if (Helpers.raycastItem(cameraEntity, this.player.getAttributeValue(EntityAttributes.PLAYER_ENTITY_INTERACTION_RANGE)) == null) return;
+        ClientPlayNetworking.send(new PickupPayload());
         this.player.swingHand(Hand.MAIN_HAND);
         ci.cancel();
     }
@@ -91,11 +92,7 @@ public class MinecraftClientMixin {
             final var dropAll = Screen.hasControlDown();
 
             if (dropPower >= 1.5) {
-                final var buffer = PacketByteBufs.create();
-                buffer.writeFloat(dropPower);
-                buffer.writeBoolean(dropAll);
-
-                ClientPlayNetworking.send(new Identifier(InteracticInit.MOD_ID, "drop_with_power"), buffer);
+                ClientPlayNetworking.send(new DropWithPowerPayload(dropPower, dropAll));
 
                 if (!this.player.getInventory().removeStack(this.player.getInventory().selectedSlot, dropAll && !this.player.getInventory().getMainHandStack().isEmpty() ? this.player.getInventory().getMainHandStack().getCount() : 1).isEmpty()) {
                     if (InteracticInit.getConfig().swingArm()) this.player.swingHand(Hand.MAIN_HAND);
@@ -107,5 +104,4 @@ public class MinecraftClientMixin {
             dropPower = 0.9f;
         }
     }
-
 }
