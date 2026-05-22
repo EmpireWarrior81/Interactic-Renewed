@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "interactic",
+  "version": "${version}",
+  "name": "Interactic Renewed",
+  "description": "A maintained fork of Interactic — fancy item animations, throwing, enhanced pickup and more. Updated to 1.20.1 with bug fixes.",
+  "authors": [
+    "EmpireWarrior",
+    "glisco (original)"
+  ],
+  "contact": {
+    "homepage": "https://github.com/EmpireWarrior/interactic-renewed",
+    "sources": "https://github.com/EmpireWarrior/interactic-renewed",
+    "issues": "https://github.com/EmpireWarrior/interactic-renewed/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/interactic/icon.png",
+  "environment": "*",
+  "mixins": [
+    "interactic.mixins.json"
+  ],
+  "entrypoints": {
+    "main": [
+      "interactic.InteracticInit"
+    ],
+    "client": [
+      "interactic.InteracticClientInit"
+    ]
+  },
+  "custom": {
+    "modmenu": {
+      "parent": {
+        "id": "interactic",
+        "name": "Interactic Renewed"
+      }
+    }
+  },
+  "depends": {
+    "fabricloader": ">=0.19.1",
+    "fabric": "*",
+    "minecraft": "~1.20.1",
+    "java": ">=17",
+    "owo": ">=0.11.2"
+  }
+}
