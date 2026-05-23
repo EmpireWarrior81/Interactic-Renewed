@@ -10,6 +10,7 @@ import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
@@ -84,13 +85,13 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
 
         var component = this.getStack().get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
         boolean hasDamageModifiers = component != null && component.modifiers().stream()
-                .anyMatch(e -> e.attribute().equals(EntityAttributes.GENERIC_ATTACK_DAMAGE));
+                .anyMatch(e -> e.attribute().equals(EntityAttributes.ATTACK_DAMAGE));
 
         if (!(this.wasFullPower || hasDamageModifiers)) return;
 
         final double damage = hasDamageModifiers
                 ? component.modifiers().stream()
-                        .filter(e -> e.attribute().equals(EntityAttributes.GENERIC_ATTACK_DAMAGE)
+                        .filter(e -> e.attribute().equals(EntityAttributes.ATTACK_DAMAGE)
                                 && e.modifier().operation() == EntityAttributeModifier.Operation.ADD_VALUE)
                         .mapToDouble(e -> e.modifier().value()).sum()
                 : 2;
@@ -101,9 +102,9 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
         final var target = entities.getFirst();
         final var damageSource = new ItemDamageSource((ItemEntity) (Object) this, this.getOwner());
 
-        if (target.hurtTime != 0 || target.isInvulnerableTo(damageSource)) return;
+        if (target.hurtTime != 0 || target.isInvulnerableTo((ServerWorld) world, damageSource)) return;
 
-        target.damage(damageSource, (float) damage);
+        target.damage((ServerWorld) world, damageSource, (float) damage);
 
         var stack = this.getStack();
         if (stack.isDamageable()) {

@@ -5,7 +5,8 @@
   "client": [
     "InGameHudMixin",
     "MinecraftClientMixin",
-    "ItemEntityRendererMixin"
+    "ItemEntityRendererMixin",
+    "ItemEntityRenderStateMixin"
   ],
   "injectors": {
     "defaultRequire": 1

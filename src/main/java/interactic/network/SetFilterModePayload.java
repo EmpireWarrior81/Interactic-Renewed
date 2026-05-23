@@ -10,7 +10,7 @@ import net.minecraft.util.Identifier;
 public record SetFilterModePayload(boolean mode) implements CustomPayload {
     public static final Id<SetFilterModePayload> ID = new Id<>(Identifier.of(InteracticInit.MOD_ID, "set_filter_mode"));
     public static final PacketCodec<PacketByteBuf, SetFilterModePayload> CODEC = PacketCodec.tuple(
-            PacketCodecs.BOOL, SetFilterModePayload::mode,
+            PacketCodecs.BOOLEAN, SetFilterModePayload::mode,
             SetFilterModePayload::new
     );
 

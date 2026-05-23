@@ -11,7 +11,7 @@ public record DropWithPowerPayload(float power, boolean dropAll) implements Cust
     public static final Id<DropWithPowerPayload> ID = new Id<>(Identifier.of(InteracticInit.MOD_ID, "drop_with_power"));
     public static final PacketCodec<PacketByteBuf, DropWithPowerPayload> CODEC = PacketCodec.tuple(
             PacketCodecs.FLOAT, DropWithPowerPayload::power,
-            PacketCodecs.BOOL, DropWithPowerPayload::dropAll,
+            PacketCodecs.BOOLEAN, DropWithPowerPayload::dropAll,
             DropWithPowerPayload::new
     );
 

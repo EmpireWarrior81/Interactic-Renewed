@@ -57,7 +57,7 @@ public class MinecraftClientMixin {
         if (!InteracticInit.getConfig().rightClickPickup()) return;
         if (KeyBindingHelper.getBoundKeyOf(InteracticClientInit.PICKUP_ITEM) != InputUtil.UNKNOWN_KEY) return;
 
-        if (Helpers.raycastItem(cameraEntity, this.player.getAttributeValue(EntityAttributes.PLAYER_ENTITY_INTERACTION_RANGE)) == null) return;
+        if (Helpers.raycastItem(cameraEntity, this.player.getAttributeValue(EntityAttributes.ENTITY_INTERACTION_RANGE)) == null) return;
         ClientPlayNetworking.send(new PickupPayload());
         this.player.swingHand(Hand.MAIN_HAND);
         ci.cancel();

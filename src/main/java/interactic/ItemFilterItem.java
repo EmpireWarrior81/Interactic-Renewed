@@ -16,9 +16,9 @@ import net.minecraft.registry.Registries;
 import net.minecraft.screen.NamedScreenHandlerFactory;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.text.Text;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
-import net.minecraft.util.TypedActionResult;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.NotNull;
@@ -40,7 +40,7 @@ public class ItemFilterItem extends Item {
     }
 
     @Override
-    public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
+    public ActionResult use(World world, PlayerEntity user, Hand hand) {
         final var playerStack = user.getStackInHand(hand);
         if (user.isSneaking()) {
             var nbt = playerStack.getOrDefault(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT).copyNbt();
@@ -48,7 +48,7 @@ public class ItemFilterItem extends Item {
             nbt.putBoolean("Enabled", !enabled);
             playerStack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
         } else {
-            if (world.isClient) return TypedActionResult.success(playerStack);
+            if (world.isClient) return ActionResult.SUCCESS;
             final var inv = new FilterInventory(playerStack);
             final var factory = new NamedScreenHandlerFactory() {
                 @Override
@@ -66,7 +66,7 @@ public class ItemFilterItem extends Item {
             var handler = (ItemFilterScreenHandler) user.currentScreenHandler;
             handler.setFilterMode(inv.getFilterMode());
         }
-        return TypedActionResult.success(playerStack);
+        return ActionResult.SUCCESS;
     }
 
     public static List<Item> getItemsInFilter(ItemStack stack) {
@@ -75,7 +75,7 @@ public class ItemFilterItem extends Item {
         final var invTag = data.copyNbt().getList("Items", NbtElement.COMPOUND_TYPE);
 
         return invTag.stream()
-                .map(s -> Registries.ITEM.getOrEmpty(Identifier.tryParse(((NbtCompound) s).getString("id"))).orElse(null))
+                .map(s -> Registries.ITEM.getOptionalValue(Identifier.tryParse(((NbtCompound) s).getString("id"))).orElse(null))
                 .filter(Objects::nonNull)
                 .toList();
     }
@@ -100,7 +100,7 @@ public class ItemFilterItem extends Item {
                 if (slot < items.size()) {
                     var id = Identifier.tryParse(compound.getString("id"));
                     if (id != null) {
-                        Registries.ITEM.getOrEmpty(id).ifPresent(item -> items.set(slot, new ItemStack(item)));
+                        Registries.ITEM.getOptionalValue(id).ifPresent(item -> items.set(slot, new ItemStack(item)));
                     }
                 }
             }
