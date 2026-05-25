@@ -176,6 +176,7 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
 
         matrices.pop();
 
+        this.shadowRadius = 0f;
         super.render(state, matrices, vertexConsumers, light);
         ci.cancel();
     }

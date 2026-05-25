@@ -35,8 +35,8 @@ public class ItemFilterItem extends Item {
         });
     }
 
-    public ItemFilterItem() {
-        super(new Settings().maxCount(1));
+    public ItemFilterItem(Settings settings) {
+        super(settings);
     }
 
     @Override
