@@ -129,10 +129,9 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
         final double distanceToCenter = (0.5 - blockHeight + blockHeight / 2.0) * 0.25;
         final boolean isFlatBlock = treatAsDepthModel && blockHeight <= 0.75;
 
-        // Shields and tridents are 3D models whose render state already encodes the correct GROUND
-        // orientation — adding HALF_PI on top would flip them face-down. All other non-block items
-        // need HALF_PI so their flat sprite lies horizontal on the ground.
-        final boolean skipHalfPi = itemStack.isOf(Items.SHIELD) || itemStack.isOf(Items.TRIDENT);
+        // Shields and tridents are 3D models: +HALF_PI flips them face-down, -HALF_PI shows the
+        // front face upward. Flat sprites need +HALF_PI to lie horizontal on the ground.
+        final boolean invertRotation = itemStack.isOf(Items.SHIELD) || itemStack.isOf(Items.TRIDENT);
 
         matrices.push();
 
@@ -149,7 +148,8 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
 
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(ext.interactic_getYaw()));
 
-        matrices.multiply(RotationAxis.POSITIVE_X.rotation(angle + (isFlatBlock || skipHalfPi ? 0 : HALF_PI)));
+        float rotationOffset = isFlatBlock ? 0 : (invertRotation ? -HALF_PI : HALF_PI);
+        matrices.multiply(RotationAxis.POSITIVE_X.rotation(angle + rotationOffset));
 
         if (treatAsDepthModel) matrices.translate(0, -distanceToCenter, 0);
 
