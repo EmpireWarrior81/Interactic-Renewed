@@ -1,6 +1,7 @@
 package interactic.mixin;
 
 import interactic.InteracticInit;
+import interactic.util.InteracticItemExtensions;
 import interactic.util.InteracticRenderState;
 import interactic.util.InteracticRenderStateExtensions;
 import net.minecraft.block.BlockState;
@@ -14,12 +15,13 @@ import net.minecraft.client.render.entity.state.ItemEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.BlockItem;
+import net.minecraft.item.Items;
 import net.minecraft.item.ItemStack;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.random.Random;
-import net.minecraft.registry.Registries;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -64,7 +66,10 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
 
         if (!InteracticInit.getConfig().fancyItemRendering()) return;
 
-        float rotation = ext.interactic_getRotation();
+        // Read rotation from the entity so it persists across frames — render states are ephemeral.
+        InteracticItemExtensions rotator = (InteracticItemExtensions) entity;
+        float rotation = rotator.getRotation();
+
         int seed = stack.isEmpty() ? 187 : Registries.ITEM.getRawId(stack.getItem()) * entity.getId();
         this.random.setSeed(seed);
 
@@ -96,6 +101,8 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
             }
         }
 
+        // Write back to the entity (persistence) and to the render state (for the render method).
+        rotator.setRotation(rotation);
         ext.interactic_setRotation(rotation);
     }
 
@@ -116,11 +123,16 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
 
         final int renderCount = state.renderedAmount;
 
-        // Scale assumptions for standard ground transform (0.25 for items)
+        // scaleZ drives positioning math; 0.5 matches the standard block ground scale, 0.25 matches items.
         final float scaleZ = treatAsDepthModel ? 0.5f : 0.25f;
 
         final double distanceToCenter = (0.5 - blockHeight + blockHeight / 2.0) * 0.25;
         final boolean isFlatBlock = treatAsDepthModel && blockHeight <= 0.75;
+
+        // Shields and tridents are 3D models whose render state already encodes the correct GROUND
+        // orientation — adding HALF_PI on top would flip them face-down. All other non-block items
+        // need HALF_PI so their flat sprite lies horizontal on the ground.
+        final boolean skipHalfPi = itemStack.isOf(Items.SHIELD) || itemStack.isOf(Items.TRIDENT);
 
         matrices.push();
 
@@ -137,9 +149,7 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
 
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(ext.interactic_getYaw()));
 
-        // In 1.21.4 the GROUND display transform is baked into ItemRenderState.render(),
-        // so we don't add HALF_PI — that would double-rotate items and push 3D models face-down.
-        matrices.multiply(RotationAxis.POSITIVE_X.rotation(angle));
+        matrices.multiply(RotationAxis.POSITIVE_X.rotation(angle + (isFlatBlock || skipHalfPi ? 0 : HALF_PI)));
 
         if (treatAsDepthModel) matrices.translate(0, -distanceToCenter, 0);
 

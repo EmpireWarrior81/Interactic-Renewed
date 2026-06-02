@@ -36,9 +36,6 @@ public class MinecraftClientMixin {
     @Unique
     private float dropPower = 0.9f;
 
-    @Unique
-    private boolean pendingDrop = false;
-
     @Shadow
     @Nullable
     public Entity cameraEntity;
@@ -71,10 +68,10 @@ public class MinecraftClientMixin {
         if (!InteracticInit.getConfig().itemThrowing()) return clientPlayerEntity.dropSelectedItem(dropEntireStack);
 
         if (!Screen.hasShiftDown()) {
-            // Suppress the vanilla drop and let afterDrop handle it via isPressed().
-            // wasPressed() only fires once per physical keypress in 1.21.4 (no OS key-repeat),
-            // so we can't accumulate power here — that happens in afterDrop instead.
-            pendingDrop = true;
+            dropPower += 0.075;
+            if (dropPower > 5) dropPower = 5;
+            if (dropPower >= 1.5)
+                clientPlayerEntity.sendMessage(Text.of("Power: " + BigDecimal.valueOf(Math.max(dropPower, 1)).setScale(1, RoundingMode.HALF_UP)), true);
             return false;
         } else {
             return clientPlayerEntity.dropSelectedItem(dropEntireStack);
@@ -90,22 +87,11 @@ public class MinecraftClientMixin {
     @Inject(method = "handleInputEvents", at = @At("RETURN"))
     private void afterDrop(CallbackInfo ci) {
         if (!InteracticInit.getConfig().itemThrowing()) return;
-        if (player == null) return;
 
-        boolean keyHeld = options.dropKey.isPressed() && !Screen.hasShiftDown();
-
-        if (keyHeld) {
-            // Accumulate power every tick while the key is physically held.
-            dropPower += 0.075f;
-            if (dropPower > 5f) dropPower = 5f;
-            if (dropPower >= 1.5f)
-                player.sendMessage(Text.of("Power: " + BigDecimal.valueOf(Math.max(dropPower, 1)).setScale(1, RoundingMode.HALF_UP)), true);
-            pendingDrop = false;
-        } else if (pendingDrop || dropPower > 0.9f) {
-            // Key was released (or was a quick tap that never registered as held).
+        if (dropPower > 0.9f && !options.dropKey.isPressed()) {
             final var dropAll = Screen.hasControlDown();
 
-            if (dropPower >= 1.5f) {
+            if (dropPower >= 1.5) {
                 ClientPlayNetworking.send(new DropWithPowerPayload(dropPower, dropAll));
 
                 if (!this.player.getInventory().removeStack(this.player.getInventory().selectedSlot, dropAll && !this.player.getInventory().getMainHandStack().isEmpty() ? this.player.getInventory().getMainHandStack().getCount() : 1).isEmpty()) {
@@ -116,7 +102,6 @@ public class MinecraftClientMixin {
             }
 
             dropPower = 0.9f;
-            pendingDrop = false;
         }
     }
 }

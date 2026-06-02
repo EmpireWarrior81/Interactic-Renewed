@@ -3,8 +3,8 @@
 ## 0.2.3+1.21.4
 
 **Bug fixes**
-- Fixed item throwing mechanic not building power when holding Q (items now throw further the longer you hold)
-- Fixed shields and other 3D items rendering face-down on the ground (shield now shows front face, not just the handle)
+- Fixed item rotation not persisting across frames (items were resetting their spin animation every frame)
+- Fixed shield rendering face-down showing only the handle — no longer applies extra rotation that conflicts with the 1.21.4 render state system
 
 ## 0.2.2+1.21.4
 
