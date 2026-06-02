@@ -137,7 +137,9 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
 
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(ext.interactic_getYaw()));
 
-        matrices.multiply(RotationAxis.POSITIVE_X.rotation(angle + (isFlatBlock ? 0 : HALF_PI)));
+        // In 1.21.4 the GROUND display transform is baked into ItemRenderState.render(),
+        // so we don't add HALF_PI — that would double-rotate items and push 3D models face-down.
+        matrices.multiply(RotationAxis.POSITIVE_X.rotation(angle));
 
         if (treatAsDepthModel) matrices.translate(0, -distanceToCenter, 0);
 
