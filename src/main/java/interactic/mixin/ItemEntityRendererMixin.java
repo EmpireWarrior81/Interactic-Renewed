@@ -25,6 +25,7 @@ import org.joml.Quaternionf;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -32,9 +33,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemEntityRenderer.class)
 public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity> {
 
-    private static final double TWO_PI = Math.PI * 2;
-    private static final double HALF_PI = Math.PI * 0.5;
-    private static final double THREE_HALF_PI = Math.PI * 1.5;
+    @Unique private static final float TWO_PI = (float) (Math.PI * 2);
+    @Unique private static final float HALF_PI = (float) (Math.PI * 0.5);
+    @Unique private static final float THREE_HALF_PI = (float) (Math.PI * 1.5);
 
     @Shadow
     @Final
@@ -73,14 +74,14 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
         final int renderCount = this.getRenderedAmount(itemStack);
         InteracticItemExtensions rotator = (InteracticItemExtensions) entity;
 
-        final var item = entity.getStack().getItem();
+        final var item = itemStack.getItem();
         final boolean treatAsDepthModel = item instanceof BlockItem && bakedModel.hasDepth();
 
         final var transform = bakedModel.getTransformation().ground;
 
-        final float scaleX = bakedModel.getTransformation().ground.scale.x;
-        final float scaleY = bakedModel.getTransformation().ground.scale.y;
-        final float scaleZ = bakedModel.getTransformation().ground.scale.z;
+        final float scaleX = transform.scale.x;
+        final float scaleY = transform.scale.y;
+        final float scaleZ = transform.scale.z;
 
         // Calculate the distance the model's center is from the item entity's center using the block outline shape
         final double blockHeight = !treatAsDepthModel ? 0 : ((BlockItem) item).getBlock().getDefaultState().getOutlineShape(entity.getWorld(), entity.getBlockPos(), ShapeContext.absent()).getMax(Direction.Axis.Y);
@@ -95,7 +96,7 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
 
         // Calculate ground distance from either the amount of items or block height
         float groundDistance = treatAsDepthModel ? (float) distanceToCenter : (float) (0.125 - 0.0625 * scaleZ);
-        if (!treatAsDepthModel) groundDistance -= (renderCount - 1) * 0.05 * scaleZ;
+        if (!treatAsDepthModel) groundDistance -= (renderCount - 1) * 0.05f * scaleZ;
         matrices.translate(0, -groundDistance, 0);
 
         // Translate randomly to avoid Z-Fighting
@@ -115,15 +116,15 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
         // Clusterfuck our way back to either 0 or 180 degrees
         if (entity.isOnGround() && !(angle == 0 || angle == (float) Math.PI)) {
             if (angle > Math.PI) {
-                if (angle > THREE_HALF_PI) angle += tickDelta * 0.5;
+                if (angle > THREE_HALF_PI) angle += tickDelta * 0.5f;
                 else {
-                    angle -= tickDelta * 0.5;
+                    angle -= tickDelta * 0.5f;
                 }
             } else {
                 if (angle > HALF_PI) {
-                    angle += tickDelta * 0.5;
+                    angle += tickDelta * 0.5f;
                     if (angle > Math.PI) angle = (float) Math.PI;
-                } else angle -= tickDelta * 0.5;
+                } else angle -= tickDelta * 0.5f;
             }
 
             if (angle < 0) angle = 0;
@@ -134,7 +135,7 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
         if (treatAsDepthModel) matrices.translate(0, -distanceToCenter, 0);
 
         // Spin the item and store the value inside it should it hit the ground next tick
-        matrices.multiply(RotationAxis.POSITIVE_X.rotation((float) (angle + (isFlatBlock ? 0 : HALF_PI))));
+        matrices.multiply(RotationAxis.POSITIVE_X.rotation(angle + (isFlatBlock ? 0 : HALF_PI)));
         rotator.setRotation(angle);
 
         // If the block is chonky, rotate it randomly
@@ -176,11 +177,17 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
                 }
             }
 
-            // Only apply the scale and rotation part of the model transform to avoid weird issues with alignment and rotation
-            matrices.multiply(new Quaternionf().rotateXYZ(transform.rotation.x, transform.rotation.y, transform.rotation.z));
-            matrices.scale(scaleX, scaleY, scaleZ);
-
-            this.itemRenderer.renderItem(itemStack, ModelTransformationMode.NONE, false, matrices, vertexConsumerProvider, light, OverlayTexture.DEFAULT_UV, bakedModel);
+            if (!bakedModel.isBuiltin()) {
+                // Only apply the scale and rotation part of the model transform to avoid weird issues with alignment and rotation
+                matrices.multiply(new Quaternionf().rotateXYZ(transform.rotation.x, transform.rotation.y, transform.rotation.z));
+                matrices.scale(scaleX, scaleY, scaleZ);
+                this.itemRenderer.renderItem(itemStack, ModelTransformationMode.NONE, false, matrices, vertexConsumerProvider, light, OverlayTexture.DEFAULT_UV, bakedModel);
+            } else {
+                // Built-in models (trident, shield) need GROUND mode for BuiltinModelItemRenderer to render.
+                // Pre-cancel the ground display's translation so our positioning logic stays accurate.
+                matrices.translate(-transform.translation.x / 16f, -transform.translation.y / 16f, -transform.translation.z / 16f);
+                this.itemRenderer.renderItem(itemStack, ModelTransformationMode.GROUND, false, matrices, vertexConsumerProvider, light, OverlayTexture.DEFAULT_UV, bakedModel);
+            }
 
             matrices.pop();
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3+1.20.1
+
+**Bug fixes**
+- Fixed tridents and shields becoming invisible after landing on the ground
+
 ## 0.2.2+1.20.1
 
 **Bug fixes**
