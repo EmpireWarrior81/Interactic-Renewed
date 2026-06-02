@@ -23,6 +23,7 @@ import net.minecraft.registry.Registries;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -30,9 +31,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemEntityRenderer.class)
 public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity, ItemEntityRenderState> {
 
-    private static final double TWO_PI = Math.PI * 2;
-    private static final double HALF_PI = Math.PI * 0.5;
-    private static final double THREE_HALF_PI = Math.PI * 1.5;
+    @Unique private static final float TWO_PI = (float) (Math.PI * 2);
+    @Unique private static final float HALF_PI = (float) (Math.PI * 0.5);
+    @Unique private static final float THREE_HALF_PI = (float) (Math.PI * 1.5);
 
     @Shadow @Final private Random random;
 
@@ -136,7 +137,7 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
 
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(ext.interactic_getYaw()));
 
-        matrices.multiply(RotationAxis.POSITIVE_X.rotation((float) (angle + (isFlatBlock ? 0 : HALF_PI))));
+        matrices.multiply(RotationAxis.POSITIVE_X.rotation(angle + (isFlatBlock ? 0 : HALF_PI)));
 
         if (treatAsDepthModel) matrices.translate(0, -distanceToCenter, 0);
 
