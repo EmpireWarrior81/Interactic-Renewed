@@ -78,3 +78,4 @@ The original [Interactic](https://modrinth.com/mod/interactic) by glisco is no l
 ## License
 
 This project follows the same license as the original Interactic mod.
+
