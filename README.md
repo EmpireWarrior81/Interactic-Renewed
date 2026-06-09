@@ -79,3 +79,7 @@ The original [Interactic](https://modrinth.com/mod/interactic) by glisco is no l
 
 This project follows the same license as the original Interactic mod.
 
+## Discord
+
+- [discord server](https://discord.gg/PQJeWmHpEk)
+
