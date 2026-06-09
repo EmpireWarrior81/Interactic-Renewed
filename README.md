@@ -54,11 +54,11 @@ The original [Interactic](https://modrinth.com/mod/interactic) by glisco is no l
 
 ## Supported Versions
 
-| Minecraft | Branch | Status |
-|-----------|--------|--------|
-| 1.21.1 | [1.21.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.1) | Active |
-| 1.20.1 | [master](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/master) / [1.20.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.20.1) | Active |
-
+| Minecraft | Branch                                                                     | Status |
+|-----------|----------------------------------------------------------------------------|--------|
+| 1.21.1    | [1.21.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.1) | Active |
+| 1.20.1    | [master](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/master) / [1.20.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.20.1) | Active |
+| 1.21.4    | [1.21.4](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.4)| WIP    |
 ---
 
 ## Installation
