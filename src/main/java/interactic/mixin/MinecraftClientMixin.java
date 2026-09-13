@@ -47,11 +47,24 @@ public abstract class MinecraftClientMixin {
     @Shadow
     public abstract boolean hasControlDown();
 
+    @Shadow
+    private int rightClickDelay;
+
     // Note: vanilla's startUseItem() no longer has an isRiding()/isPassenger() gate to
     // hook after (it now gates on isHandsBusy() instead, which is not equivalent -
     // covers boat-steering input, not general riding). Injecting at HEAD instead, which
-    // preserves the intent (try custom pickup before vanilla item-use proceeds) but
-    // needs runtime verification against a live client.
+    // preserves the intent (try custom pickup before vanilla item-use proceeds).
+    //
+    // handleKeybinds() calls startUseItem() every tick the use key is held down, gated on
+    // rightClickDelay == 0 (see the "isDown() && rightClickDelay == 0" repeat-fire check).
+    // Vanilla's own startUseItem() sets rightClickDelay = 4 as its very first action - but
+    // since we cancel at HEAD, that line never runs on a successful pickup, so the cooldown
+    // never engages and the repeat-fire check keeps calling startUseItem() every subsequent
+    // tick the button stays held. Once the item is actually gone (after server round-trip
+    // confirms the pickup), the very next repeat-tick - still with the button held down from
+    // the original click - falls through to vanilla's normal item-use/block-placement logic
+    // instead, which is what caused pickups to sometimes place a block right after. Setting
+    // the same cooldown vanilla would have applied closes that gap.
     @Inject(method = "startUseItem", at = @At("HEAD"), cancellable = true)
     private void tryPickupItem(CallbackInfo ci) {
         if (!InteracticInit.getConfig().rightClickPickup()) return;
@@ -60,6 +73,7 @@ public abstract class MinecraftClientMixin {
         if (Helpers.raycastItem(((Minecraft) (Object) this).getCameraEntity(), this.player.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE)) == null) return;
         ClientPlayNetworking.send(new PickupPayload());
         this.player.swing(InteractionHand.MAIN_HAND);
+        this.rightClickDelay = 4;
         ci.cancel();
     }
 
