@@ -22,11 +22,6 @@ public class InteracticClientInit implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // TODO: ModelPredicateProviderRegistry was removed in 1.21.4. The item_filter
-        // enabled/disabled texture swap needs to be reimplemented via the new item-model
-        // definition system (assets/interactic/items/*.json using a "minecraft:select"
-        // component-driven model instead of assets/interactic/models/item/item_filter*.json).
-
         if (InteracticInit.getConfig().itemFilterEnabled()) {
             MenuScreens.register(InteracticInit.ITEM_FILTER_SCREEN_HANDLER, ItemFilterScreen::new);
 

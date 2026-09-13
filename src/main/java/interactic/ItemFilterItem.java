@@ -20,6 +20,7 @@ import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.CustomModelData;
 import net.minecraft.world.level.Level;
 import org.jspecify.annotations.Nullable;
 
@@ -47,6 +48,7 @@ public class ItemFilterItem extends Item {
             var enabled = nbt.getBooleanOr("Enabled", false);
             nbt.putBoolean("Enabled", !enabled);
             playerStack.set(DataComponents.CUSTOM_DATA, CustomData.of(nbt));
+            setEnabledModelFlag(playerStack, !enabled);
         } else {
             if (level.isClientSide()) return InteractionResult.SUCCESS;
             final var inv = new FilterInventory(playerStack);
@@ -67,6 +69,14 @@ public class ItemFilterItem extends Item {
             handler.setFilterMode(inv.getFilterMode());
         }
         return InteractionResult.SUCCESS;
+    }
+
+    // Drives the enabled/disabled texture swap via the item-model-definition system
+    // (assets/interactic/items/item_filter.json, a "minecraft:condition" keyed off
+    // "minecraft:custom_model_data" index 0) - ModelPredicateProviderRegistry, which this
+    // used to go through, was removed in 1.21.4.
+    private static void setEnabledModelFlag(ItemStack stack, boolean enabled) {
+        stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(List.of(), List.of(enabled), List.of(), List.of()));
     }
 
     public static List<Item> getItemsInFilter(ItemStack stack) {
