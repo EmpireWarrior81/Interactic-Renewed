@@ -29,7 +29,7 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
     public abstract ItemStack getItem();
 
     @Shadow
-    private int itemAge;
+    private int age;
 
     @Shadow
     @Nullable
@@ -77,7 +77,7 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
     @Inject(method = "tick", at = @At("TAIL"))
     private void dealThrowingDamage(CallbackInfo ci) {
         if (!InteracticInit.getConfig().itemsActAsProjectiles()) return;
-        if (itemAge < 2) return;
+        if (age < 2) return;
 
         var level = this.level();
         if (level.isClientSide()) return;

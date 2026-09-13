@@ -8,6 +8,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -34,8 +35,8 @@ public class ItemFilterItem extends Item {
         });
     }
 
-    public ItemFilterItem() {
-        super(new Properties().stacksTo(1));
+    public ItemFilterItem(ResourceKey<Item> key) {
+        super(new Properties().setId(key).stacksTo(1));
     }
 
     @Override
