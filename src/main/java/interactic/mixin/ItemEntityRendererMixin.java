@@ -114,47 +114,12 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
         // pivots around, since we rotate BEFORE calling submit()) is NOT at the bounding
         // box's center - e.g. for minecraft:grass_block, bbox Y ran from 0.0625 to 0.3125,
         // meaning local Y=0 sits 0.0625 *below* the model entirely, not in the middle of it.
-        // Rotating around the box's center (the previous attempt) therefore used too small a
-        // radius - the true worst-case distance from the pivot (local origin) to the model's
-        // farthest corner is bigger. Fixed to measure from the actual pivot instead of an
-        // assumed center. Also stopped applying the shared flat-item groundDistance offset on
-        // top for depth models - its constants are tuned for thin flat sprites, and were
-        // undoing part of this lift.
         final boolean isFlatBlock = treatAsDepthModel && boundingBox.getYsize() <= 0.75;
 
-        // Translate so that everything happens in the middle of the item hitbox
-        poseStack.translate(0, 0.125f, 0);
-
-        if (treatAsDepthModel) {
-            double farY = Math.max(Math.abs(boundingBox.minY), Math.abs(boundingBox.maxY));
-            double farZ = Math.max(Math.abs(boundingBox.minZ), Math.abs(boundingBox.maxZ));
-            double safeRadius = Math.sqrt(farY * farY + farZ * farZ);
-            poseStack.translate(0, safeRadius, 0);
-
-            if (INTERACTIC_DEBUG_LOG_COUNT.get() < 30) {
-                INTERACTIC_DEBUG_LOG_COUNT.incrementAndGet();
-                INTERACTIC_LOGGER.info(
-                    "[interactic-debug] item={} bbox=({},{},{})-({},{},{}) safeRadius={} onGround={} angle={} isFlatBlock={} renderCount={}",
-                    BuiltInRegistries.ITEM.getKey(entity.getItem().getItem()),
-                    boundingBox.minX, boundingBox.minY, boundingBox.minZ,
-                    boundingBox.maxX, boundingBox.maxY, boundingBox.maxZ,
-                    safeRadius, entity.onGround(), rotator.getRotation(), isFlatBlock, renderCount
-                );
-            }
-        } else {
-            // Calculate ground distance from the amount of items rendered (flat items only)
-            float groundDistance = (float) (0.125 - 0.0625 * scaleZ);
-            groundDistance -= (renderCount - 1) * 0.05f * scaleZ;
-            poseStack.translate(0, -groundDistance, 0);
-        }
-
-        // Translate randomly to avoid Z-Fighting
-        poseStack.translate(0, (random.nextDouble() - 0.5) * 0.005, 0);
-
-        // Rotate the item by its yaw to get some randomness for the spinning axis
-        poseStack.mulPose(Axis.YP.rotationDegrees(entity.getYRot()));
-
-        // Calculate rotation based on velocity or get the one the item had before it hit the ground
+        // Calculate rotation based on velocity or get the one the item had before it hit the ground.
+        // Computed up front (rather than after positioning, like the original code did) so the
+        // exact rotation angle is known before we compute how much to lift depth models by -
+        // see below.
         if (rotator.getRotation() == -1) rotator.setRotation((random.nextInt(20) - 10) * 0.15f);
         float angle = entity.onGround() ? rotator.getRotation() : (float) (rotator.getRotation() + ((Mth.clamp(entity.getDeltaMovement().y * 0.25, 0.075, 0.3))) * (entity.isUnderWater() ? 0.25f : 1) * (InteracticRenderState.frameDuration * 5) * InteracticInit.getItemRotationSpeedMultiplier());
 
@@ -178,10 +143,55 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
             if (angle < 0) angle = 0;
             if (angle > TWO_PI) angle = 0;
         }
-
-        // Spin the item and store the value inside it should it hit the ground next tick
-        poseStack.mulPose(Axis.XP.rotation(angle + (isFlatBlock ? 0 : HALF_PI)));
         rotator.setRotation(angle);
+        final float rotationRad = angle + (isFlatBlock ? 0 : HALF_PI);
+
+        // Translate so that everything happens in the middle of the item hitbox
+        poseStack.translate(0, 0.125f, 0);
+
+        if (treatAsDepthModel) {
+            // A worst-case (any-angle) lift made blocks float, since it stays constant even at
+            // the common flat/resting angle where much less lift is actually needed. Since we
+            // now know the exact rotation angle being applied this frame, compute the exact
+            // lift for that angle instead: evaluate where each of the model's 4 Y/Z corners
+            // ends up after rotating by rotationRad around the X axis, and lift only enough to
+            // clear the lowest one. (The rotation-matrix sign convention doesn't matter here -
+            // evaluating both minZ and maxZ covers both possibilities either way.)
+            double cos = Math.cos(rotationRad);
+            double sin = Math.sin(rotationRad);
+            double c1 = boundingBox.minY * cos - boundingBox.minZ * sin;
+            double c2 = boundingBox.minY * cos - boundingBox.maxZ * sin;
+            double c3 = boundingBox.maxY * cos - boundingBox.minZ * sin;
+            double c4 = boundingBox.maxY * cos - boundingBox.maxZ * sin;
+            double lowestY = Math.min(Math.min(c1, c2), Math.min(c3, c4));
+            double lift = lowestY < 0 ? -lowestY : 0;
+            poseStack.translate(0, lift, 0);
+
+            if (INTERACTIC_DEBUG_LOG_COUNT.get() < 30) {
+                INTERACTIC_DEBUG_LOG_COUNT.incrementAndGet();
+                INTERACTIC_LOGGER.info(
+                    "[interactic-debug] item={} bbox=({},{},{})-({},{},{}) rotationRad={} lift={} onGround={} isFlatBlock={} renderCount={}",
+                    BuiltInRegistries.ITEM.getKey(entity.getItem().getItem()),
+                    boundingBox.minX, boundingBox.minY, boundingBox.minZ,
+                    boundingBox.maxX, boundingBox.maxY, boundingBox.maxZ,
+                    rotationRad, lift, entity.onGround(), isFlatBlock, renderCount
+                );
+            }
+        } else {
+            // Calculate ground distance from the amount of items rendered (flat items only)
+            float groundDistance = (float) (0.125 - 0.0625 * scaleZ);
+            groundDistance -= (renderCount - 1) * 0.05f * scaleZ;
+            poseStack.translate(0, -groundDistance, 0);
+        }
+
+        // Translate randomly to avoid Z-Fighting
+        poseStack.translate(0, (random.nextDouble() - 0.5) * 0.005, 0);
+
+        // Rotate the item by its yaw to get some randomness for the spinning axis
+        poseStack.mulPose(Axis.YP.rotationDegrees(entity.getYRot()));
+
+        // Spin the item (already computed above)
+        poseStack.mulPose(Axis.XP.rotation(rotationRad));
 
         // If the block is chonky, rotate it randomly
         if (treatAsDepthModel && !isFlatBlock && !InteracticInit.getConfig().blocksLayFlat()) {
