@@ -1,22 +1,22 @@
 package interactic.network;
 
 import interactic.InteracticInit;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public record DropWithPowerPayload(float power, boolean dropAll) implements CustomPayload {
-    public static final Id<DropWithPowerPayload> ID = new Id<>(Identifier.of(InteracticInit.MOD_ID, "drop_with_power"));
-    public static final PacketCodec<PacketByteBuf, DropWithPowerPayload> CODEC = PacketCodec.tuple(
-            PacketCodecs.FLOAT, DropWithPowerPayload::power,
-            PacketCodecs.BOOL, DropWithPowerPayload::dropAll,
+public record DropWithPowerPayload(float power, boolean dropAll) implements CustomPacketPayload {
+    public static final Type<DropWithPowerPayload> TYPE = new Type<>(Identifier.fromNamespaceAndPath(InteracticInit.MOD_ID, "drop_with_power"));
+    public static final StreamCodec<FriendlyByteBuf, DropWithPowerPayload> CODEC = StreamCodec.composite(
+            ByteBufCodecs.FLOAT, DropWithPowerPayload::power,
+            ByteBufCodecs.BOOL, DropWithPowerPayload::dropAll,
             DropWithPowerPayload::new
     );
 
     @Override
-    public Id<? extends CustomPayload> getId() {
-        return ID;
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 }

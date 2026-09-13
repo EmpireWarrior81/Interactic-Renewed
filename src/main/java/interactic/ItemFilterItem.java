@@ -1,27 +1,26 @@
 package interactic;
 
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.NbtComponent;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemGroups;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.registry.Registries;
-import net.minecraft.screen.NamedScreenHandlerFactory;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.text.Text;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.TypedActionResult;
-import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.world.World;
-import org.jetbrains.annotations.NotNull;
+import net.fabricmc.fabric.api.creativetab.v1.CreativeModeTabEvents;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.Container;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.level.Level;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,61 +28,61 @@ import java.util.Objects;
 public class ItemFilterItem extends Item {
 
     static {
-        ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> {
+        CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES).register(output -> {
             var filter = InteracticInit.getItemFilter();
-            if (filter != null) entries.add(filter);
+            if (filter != null) output.accept(filter);
         });
     }
 
     public ItemFilterItem() {
-        super(new Settings().maxCount(1));
+        super(new Properties().stacksTo(1));
     }
 
     @Override
-    public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
-        final var playerStack = user.getStackInHand(hand);
-        if (user.isSneaking()) {
-            var nbt = playerStack.getOrDefault(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT).copyNbt();
-            var enabled = nbt.getBoolean("Enabled");
+    public InteractionResult use(Level level, Player user, InteractionHand hand) {
+        final var playerStack = user.getItemInHand(hand);
+        if (user.isShiftKeyDown()) {
+            var nbt = playerStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+            var enabled = nbt.getBooleanOr("Enabled", false);
             nbt.putBoolean("Enabled", !enabled);
-            playerStack.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
+            playerStack.set(DataComponents.CUSTOM_DATA, CustomData.of(nbt));
         } else {
-            if (world.isClient) return TypedActionResult.success(playerStack);
+            if (level.isClientSide()) return InteractionResult.SUCCESS;
             final var inv = new FilterInventory(playerStack);
-            final var factory = new NamedScreenHandlerFactory() {
+            final var factory = new MenuProvider() {
                 @Override
-                public @NotNull ScreenHandler createMenu(int syncId, PlayerInventory playerInv, PlayerEntity player) {
+                public @Nullable AbstractContainerMenu createMenu(int syncId, Inventory playerInv, Player player) {
                     return new ItemFilterScreenHandler(syncId, playerInv, inv);
                 }
 
                 @Override
-                public Text getDisplayName() {
-                    return getName();
+                public Component getDisplayName() {
+                    return getName(playerStack);
                 }
             };
-            user.openHandledScreen(factory);
+            user.openMenu(factory);
 
-            var handler = (ItemFilterScreenHandler) user.currentScreenHandler;
+            var handler = (ItemFilterScreenHandler) user.containerMenu;
             handler.setFilterMode(inv.getFilterMode());
         }
-        return TypedActionResult.success(playerStack);
+        return InteractionResult.SUCCESS;
     }
 
     public static List<Item> getItemsInFilter(ItemStack stack) {
-        var data = stack.get(DataComponentTypes.CUSTOM_DATA);
+        var data = stack.get(DataComponents.CUSTOM_DATA);
         if (data == null) return List.of();
-        final var invTag = data.copyNbt().getList("Items", NbtElement.COMPOUND_TYPE);
+        final var invTag = data.copyTag().getListOrEmpty("Items");
 
         return invTag.stream()
-                .map(s -> Registries.ITEM.getOrEmpty(Identifier.tryParse(((NbtCompound) s).getString("id"))).orElse(null))
+                .map(s -> BuiltInRegistries.ITEM.getOptional(Identifier.tryParse(((CompoundTag) s).getStringOr("id", ""))).orElse(null))
                 .filter(Objects::nonNull)
                 .toList();
     }
 
-    public static class FilterInventory implements Inventory {
+    public static class FilterInventory implements Container {
 
         public final ItemStack filter;
-        private final DefaultedList<ItemStack> items = DefaultedList.ofSize(9, ItemStack.EMPTY);
+        private final NonNullList<ItemStack> items = NonNullList.withSize(9, ItemStack.EMPTY);
 
         public FilterInventory(ItemStack filter) {
             this.filter = filter;
@@ -91,34 +90,34 @@ public class ItemFilterItem extends Item {
         }
 
         private void readItems() {
-            var data = filter.get(DataComponentTypes.CUSTOM_DATA);
+            var data = filter.get(DataComponents.CUSTOM_DATA);
             if (data == null) return;
-            var invTag = data.copyNbt().getList("Items", NbtElement.COMPOUND_TYPE);
+            var invTag = data.copyTag().getListOrEmpty("Items");
             for (int i = 0; i < invTag.size(); i++) {
-                var compound = (NbtCompound) invTag.get(i);
-                int slot = compound.getByte("Slot") & 0xFF;
+                var compound = (CompoundTag) invTag.get(i);
+                int slot = compound.getByteOr("Slot", (byte) 0) & 0xFF;
                 if (slot < items.size()) {
-                    var id = Identifier.tryParse(compound.getString("id"));
+                    var id = Identifier.tryParse(compound.getStringOr("id", ""));
                     if (id != null) {
-                        Registries.ITEM.getOrEmpty(id).ifPresent(item -> items.set(slot, new ItemStack(item)));
+                        BuiltInRegistries.ITEM.getOptional(id).ifPresent(item -> items.set(slot, new ItemStack(item)));
                     }
                 }
             }
         }
 
         public void setFilterMode(boolean mode) {
-            var nbt = filter.getOrDefault(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT).copyNbt();
+            var nbt = filter.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
             nbt.putBoolean("BlockMode", mode);
-            filter.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
+            filter.set(DataComponents.CUSTOM_DATA, CustomData.of(nbt));
         }
 
         public boolean getFilterMode() {
-            var data = filter.get(DataComponentTypes.CUSTOM_DATA);
-            return data != null && data.copyNbt().getBoolean("BlockMode");
+            var data = filter.get(DataComponents.CUSTOM_DATA);
+            return data != null && data.copyTag().getBooleanOr("BlockMode", false);
         }
 
         @Override
-        public int size() {
+        public int getContainerSize() {
             return 9;
         }
 
@@ -128,60 +127,60 @@ public class ItemFilterItem extends Item {
         }
 
         @Override
-        public ItemStack getStack(int slot) {
+        public ItemStack getItem(int slot) {
             return items.get(slot);
         }
 
         @Override
-        public ItemStack removeStack(int slot, int amount) {
+        public ItemStack removeItem(int slot, int amount) {
             var result = items.get(slot).copy();
             if (amount >= result.getCount()) {
                 items.set(slot, ItemStack.EMPTY);
             } else {
                 result.setCount(amount);
-                items.get(slot).decrement(amount);
+                items.get(slot).shrink(amount);
             }
-            if (!result.isEmpty()) markDirty();
+            if (!result.isEmpty()) setChanged();
             return result;
         }
 
         @Override
-        public ItemStack removeStack(int slot) {
+        public ItemStack removeItemNoUpdate(int slot) {
             var stack = items.get(slot).copy();
             items.set(slot, ItemStack.EMPTY);
-            markDirty();
+            setChanged();
             return stack;
         }
 
         @Override
-        public void setStack(int slot, ItemStack stack) {
+        public void setItem(int slot, ItemStack stack) {
             items.set(slot, stack);
         }
 
         @Override
-        public void markDirty() {
-            var nbt = filter.getOrDefault(DataComponentTypes.CUSTOM_DATA, NbtComponent.DEFAULT).copyNbt();
-            var itemsTag = new NbtList();
+        public void setChanged() {
+            var nbt = filter.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+            var itemsTag = new ListTag();
             for (int i = 0; i < items.size(); i++) {
                 var stack = items.get(i);
                 if (!stack.isEmpty()) {
-                    var compound = new NbtCompound();
+                    var compound = new CompoundTag();
                     compound.putByte("Slot", (byte) i);
-                    compound.putString("id", Registries.ITEM.getId(stack.getItem()).toString());
+                    compound.putString("id", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
                     itemsTag.add(compound);
                 }
             }
             nbt.put("Items", itemsTag);
-            filter.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
+            filter.set(DataComponents.CUSTOM_DATA, CustomData.of(nbt));
         }
 
         @Override
-        public boolean canPlayerUse(PlayerEntity player) {
+        public boolean stillValid(Player player) {
             return player.getInventory().contains(filter);
         }
 
         @Override
-        public void clear() {
+        public void clearContent() {
             for (int i = 0; i < items.size(); i++) {
                 items.set(i, ItemStack.EMPTY);
             }
