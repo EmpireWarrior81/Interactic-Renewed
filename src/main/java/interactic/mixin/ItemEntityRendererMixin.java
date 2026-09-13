@@ -146,8 +146,13 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
         rotator.setRotation(angle);
         final float rotationRad = angle + (isFlatBlock ? 0 : HALF_PI);
 
-        // Translate so that everything happens in the middle of the item hitbox
-        poseStack.translate(0, 0.125f, 0);
+        // Translate so that everything happens in the middle of the item hitbox. Flat items
+        // compensate for this afterward via their own groundDistance subtraction below; depth
+        // models don't (they use the exact-lift calculation instead, which is already relative
+        // to the model's own correctly-anchored bounding box), so applying it there left a
+        // small uncompensated surplus on top of the lift - visible as a slight float even after
+        // the lift itself became exact. Only applied for flat items now.
+        if (!treatAsDepthModel) poseStack.translate(0, 0.125f, 0);
 
         if (treatAsDepthModel) {
             // A worst-case (any-angle) lift made blocks float, since it stays constant even at
