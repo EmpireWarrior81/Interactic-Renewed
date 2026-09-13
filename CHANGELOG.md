@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4+1.21.1
+
+**Bug fixes**
+- Fixed the Item Filter crafting recipe silently failing to register
+
 ## 0.2.3+1.21.1
 
 **Bug fixes**
