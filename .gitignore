@@ -42,3 +42,4 @@ replay_*.log
 # local only
 .claude/
 reference/
+CLAUDE.md
