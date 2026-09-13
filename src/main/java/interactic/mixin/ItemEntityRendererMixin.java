@@ -104,17 +104,29 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
         // so a hand-tuned block-height-based Y reposition on top of that double-applies an
         // offset - that was causing chunky/block items to render in the wrong place (and
         // sometimes get culled entirely) while flat items, which skip this branch, rendered
-        // fine. Instead of guessing a replacement constant, measure the model's own lowest
-        // point (boundingBox.minY, in the same "as GROUND context lays it out" space) and
-        // lift by exactly that much so its bottom sits at Y=0 - self-correcting regardless of
-        // whatever offset GROUND context bakes in, rather than a fixed number that only
-        // happens to work for specific models.
+        // fine.
+        //
+        // Lifting by just -boundingBox.minY (the model's lowest point when unrotated) still
+        // clips intermittently: the block spins around the X axis while falling and settling
+        // (see the angle/rotation-snap logic below), and a lift computed for the *unrotated*
+        // orientation only guarantees the bottom face clears the ground in that one
+        // orientation - mid-spin, a different point of the model becomes the lowest one and
+        // can dip below ground again. Instead, lift the model's *center* by the radius of its
+        // Y/Z bounding circle - the maximum distance any point can be from the center after
+        // an X-axis rotation, regardless of angle - which guarantees no point ever goes below
+        // Y=0 at any rotation, not just the resting one.
         final boolean isFlatBlock = treatAsDepthModel && boundingBox.getYsize() <= 0.75;
 
         // Translate so that everything happens in the middle of the item hitbox
         poseStack.translate(0, 0.125f, 0);
 
-        if (treatAsDepthModel) poseStack.translate(0, -boundingBox.minY, 0);
+        if (treatAsDepthModel) {
+            double centerY = (boundingBox.minY + boundingBox.maxY) / 2.0;
+            double halfY = boundingBox.getYsize() / 2.0;
+            double halfZ = boundingBox.getZsize() / 2.0;
+            double safeRadius = Math.sqrt(halfY * halfY + halfZ * halfZ);
+            poseStack.translate(0, safeRadius - centerY, 0);
+        }
 
         // Calculate ground distance from the amount of items rendered
         float groundDistance = (float) (0.125 - 0.0625 * scaleZ);
