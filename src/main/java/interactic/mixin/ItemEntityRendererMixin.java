@@ -99,24 +99,24 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
         final boolean treatAsDepthModel = boundingBox.getZsize() > DEPTH_THRESHOLD;
         final float scaleZ = 1f;
 
-        final double blockHeight = !treatAsDepthModel ? 0 : boundingBox.getYsize();
-        final boolean isFlatBlock = treatAsDepthModel && blockHeight <= 0.75;
-        final double distanceToCenter = (0.5 - blockHeight + blockHeight / 2) * 0.25;
+        // Note: getModelBoundingBox() is measured AFTER the model's GROUND-context transform
+        // is already applied (unlike the old block-outline-shape query this used to mirror),
+        // so a block-height-based extra Y reposition on top of that double-applies an offset -
+        // that was causing chunky/block items to render in the wrong place (and sometimes get
+        // culled entirely) while flat items, which skip this branch, rendered fine. Trust
+        // GROUND context for positioning here instead, same as flat items do.
+        final boolean isFlatBlock = treatAsDepthModel && boundingBox.getYsize() <= 0.75;
 
         // Translate so that everything happens in the middle of the item hitbox
         poseStack.translate(0, 0.125f, 0);
 
-        // Move the model, so it's center is at the base of the item entity
-        if (treatAsDepthModel) poseStack.translate(0, distanceToCenter, 0);
-
-        // Calculate ground distance from either the amount of items or block height
-        float groundDistance = treatAsDepthModel ? (float) distanceToCenter : (float) (0.125 - 0.0625 * scaleZ);
-        if (!treatAsDepthModel) groundDistance -= (renderCount - 1) * 0.05f * scaleZ;
+        // Calculate ground distance from the amount of items rendered
+        float groundDistance = (float) (0.125 - 0.0625 * scaleZ);
+        groundDistance -= (renderCount - 1) * 0.05f * scaleZ;
         poseStack.translate(0, -groundDistance, 0);
 
         // Translate randomly to avoid Z-Fighting
         poseStack.translate(0, (random.nextDouble() - 0.5) * 0.005, 0);
-        if (treatAsDepthModel && !isFlatBlock) poseStack.translate(0, -.1, 0);
 
         // Rotate the item by its yaw to get some randomness for the spinning axis
         poseStack.mulPose(Axis.YP.rotationDegrees(entity.getYRot()));
@@ -146,9 +146,6 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
             if (angle > TWO_PI) angle = 0;
         }
 
-        // Move the matrix back so the rotation happens around the model's center
-        if (treatAsDepthModel) poseStack.translate(0, -distanceToCenter, 0);
-
         // Spin the item and store the value inside it should it hit the ground next tick
         poseStack.mulPose(Axis.XP.rotation(angle + (isFlatBlock ? 0 : HALF_PI)));
         rotator.setRotation(angle);
@@ -157,11 +154,6 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
         if (treatAsDepthModel && !isFlatBlock && !InteracticInit.getConfig().blocksLayFlat()) {
             poseStack.mulPose(Axis.YP.rotationDegrees(this.random.nextFloat() * 45));
             poseStack.mulPose(Axis.ZP.rotationDegrees(this.random.nextFloat() * 45));
-        }
-
-        // Undo the translation from before
-        if (treatAsDepthModel) {
-            poseStack.translate(0, distanceToCenter, 0);
         }
 
         // Translate so that the origin gets moved back for stacks with multiple items rendered
