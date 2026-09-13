@@ -78,7 +78,7 @@ public abstract class MinecraftClientMixin {
         }
     }
 
-    @Redirect(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;swing(Lnet/minecraft/world/InteractionHand;)V"))
+    @Redirect(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;swing(Lnet/minecraft/world/InteractionHand;)V"))
     private void dontSwingArms(LocalPlayer player, InteractionHand hand) {
         if (!InteracticInit.getConfig().swingArm()) return;
         player.swing(hand);
