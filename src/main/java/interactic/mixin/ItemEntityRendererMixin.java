@@ -101,14 +101,20 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
 
         // Note: getModelBoundingBox() is measured AFTER the model's GROUND-context transform
         // is already applied (unlike the old block-outline-shape query this used to mirror),
-        // so a block-height-based extra Y reposition on top of that double-applies an offset -
-        // that was causing chunky/block items to render in the wrong place (and sometimes get
-        // culled entirely) while flat items, which skip this branch, rendered fine. Trust
-        // GROUND context for positioning here instead, same as flat items do.
+        // so a hand-tuned block-height-based Y reposition on top of that double-applies an
+        // offset - that was causing chunky/block items to render in the wrong place (and
+        // sometimes get culled entirely) while flat items, which skip this branch, rendered
+        // fine. Instead of guessing a replacement constant, measure the model's own lowest
+        // point (boundingBox.minY, in the same "as GROUND context lays it out" space) and
+        // lift by exactly that much so its bottom sits at Y=0 - self-correcting regardless of
+        // whatever offset GROUND context bakes in, rather than a fixed number that only
+        // happens to work for specific models.
         final boolean isFlatBlock = treatAsDepthModel && boundingBox.getYsize() <= 0.75;
 
         // Translate so that everything happens in the middle of the item hitbox
         poseStack.translate(0, 0.125f, 0);
+
+        if (treatAsDepthModel) poseStack.translate(0, -boundingBox.minY, 0);
 
         // Calculate ground distance from the amount of items rendered
         float groundDistance = (float) (0.125 - 0.0625 * scaleZ);
