@@ -70,7 +70,7 @@ public abstract class MinecraftClientMixin {
         if (!InteracticInit.getConfig().rightClickPickup()) return;
         if (KeyMappingHelper.getBoundKeyOf(InteracticClientInit.PICKUP_ITEM) != InputConstants.UNKNOWN) return;
 
-        if (Helpers.raycastItem(((Minecraft) (Object) this).getCameraEntity(), this.player.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE), "pickup") == null) return;
+        if (Helpers.raycastItem(((Minecraft) (Object) this).getCameraEntity(), this.player.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE)) == null) return;
         ClientPlayNetworking.send(new PickupPayload());
         this.player.swing(InteractionHand.MAIN_HAND);
         this.rightClickDelay = 4;
