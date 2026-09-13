@@ -11,13 +11,14 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.Registry;
-import net.minecraft.resource.featuretoggle.FeatureFlags;
-import net.minecraft.screen.ScreenHandlerType;
-import net.minecraft.util.Identifier;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.Item;
 
 import java.util.function.Consumer;
 
@@ -30,15 +31,15 @@ public class InteracticInit implements ModInitializer {
     private static final InteracticConfig CONFIG = InteracticConfig.createAndLoad();
     private static float itemRotationSpeedMultiplier = 1f;
 
-    public static final ScreenHandlerType<ItemFilterScreenHandler> ITEM_FILTER_SCREEN_HANDLER =
-            Registry.register(Registries.SCREEN_HANDLER, Identifier.of(MOD_ID, "item_filter"), new ScreenHandlerType<>(ItemFilterScreenHandler::new, FeatureFlags.DEFAULT_ENABLED_FEATURES));
+    public static final MenuType<ItemFilterScreenHandler> ITEM_FILTER_SCREEN_HANDLER =
+            Registry.register(BuiltInRegistries.MENU, Identifier.fromNamespaceAndPath(MOD_ID, "item_filter"), new MenuType<>(ItemFilterScreenHandler::new, FeatureFlags.VANILLA_SET));
 
     @Override
     public void onInitialize() {
-        PayloadTypeRegistry.playC2S().register(PickupPayload.ID, PickupPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(DropWithPowerPayload.ID, DropWithPowerPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(FilterModeRequestPayload.ID, FilterModeRequestPayload.CODEC);
-        PayloadTypeRegistry.playS2C().register(SetFilterModePayload.ID, SetFilterModePayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(PickupPayload.TYPE, PickupPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(DropWithPowerPayload.TYPE, DropWithPowerPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(FilterModeRequestPayload.TYPE, FilterModeRequestPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(SetFilterModePayload.TYPE, SetFilterModePayload.CODEC);
 
         CONFIG.subscribeToClientOnlyMode(clientOnlyMode -> {
             if (!clientOnlyMode) return;
@@ -58,34 +59,34 @@ public class InteracticInit implements ModInitializer {
         if (FabricLoader.getInstance().isModLoaded("iris")) itemRotationSpeedMultiplier = 0.5f;
 
         if (CONFIG.itemFilterEnabled()) {
-            ITEM_FILTER = Registry.register(Registries.ITEM, Identifier.of(MOD_ID, "item_filter"), new ItemFilterItem());
+            ITEM_FILTER = Registry.register(BuiltInRegistries.ITEM, Identifier.fromNamespaceAndPath(MOD_ID, "item_filter"), new ItemFilterItem());
 
-            ServerPlayNetworking.registerGlobalReceiver(FilterModeRequestPayload.ID, (payload, context) -> {
+            ServerPlayNetworking.registerGlobalReceiver(FilterModeRequestPayload.TYPE, (payload, context) -> {
                 context.server().execute(() -> {
                     var player = context.player();
-                    if (!(player.currentScreenHandler instanceof ItemFilterScreenHandler filterHandler)) return;
+                    if (!(player.containerMenu instanceof ItemFilterScreenHandler filterHandler)) return;
                     filterHandler.setFilterMode(payload.mode());
                 });
             });
         }
 
         if (CONFIG.rightClickPickup()) {
-            ServerPlayNetworking.registerGlobalReceiver(PickupPayload.ID, (payload, context) -> {
+            ServerPlayNetworking.registerGlobalReceiver(PickupPayload.TYPE, (payload, context) -> {
                 context.server().execute(() -> {
                     var player = context.player();
-                    final var item = Helpers.raycastItem(player.getCameraEntity(), 6);
+                    final var item = Helpers.raycastItem(player.getCamera(), 6);
                     if (item == null) return;
 
-                    if (player.getInventory().insertStack(item.getStack().copy())) {
-                        player.sendPickup(item, item.getStack().getCount());
-                        item.discard();
+                    if (player.getInventory().add(item.getItem().copy())) {
+                        player.take(item, item.getItem().getCount());
+                        item.remove(Entity.RemovalReason.DISCARDED);
                     }
                 });
             });
         }
 
         if (CONFIG.itemThrowing()) {
-            ServerPlayNetworking.registerGlobalReceiver(DropWithPowerPayload.ID, (payload, context) -> {
+            ServerPlayNetworking.registerGlobalReceiver(DropWithPowerPayload.TYPE, (payload, context) -> {
                 context.server().execute(() -> {
                     var player = context.player();
                     ((InteracticPlayerExtension) player).setDropPower(payload.power());
@@ -106,8 +107,8 @@ public class InteracticInit implements ModInitializer {
         });
     }
 
-    private void dropSelected(PlayerEntity player, boolean dropAll) {
-        player.dropItem(player.getInventory().removeStack(player.getInventory().selectedSlot, dropAll && !player.getInventory().getMainHandStack().isEmpty() ? player.getInventory().getMainHandStack().getCount() : 1), false, true);
+    private void dropSelected(Player player, boolean dropAll) {
+        player.drop(player.getInventory().removeFromSelected(dropAll), true);
     }
 
     public static float getItemRotationSpeedMultiplier() {

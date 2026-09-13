@@ -1,27 +1,22 @@
 package interactic.mixin;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import interactic.InteracticInit;
 import interactic.util.InteracticItemExtensions;
+import interactic.util.InteracticRenderStateExtension;
 import interactic.util.InteracticRenderState;
-import net.minecraft.block.ShapeContext;
-import net.minecraft.client.render.OverlayTexture;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.entity.EntityRenderer;
-import net.minecraft.client.render.entity.EntityRendererFactory;
-import net.minecraft.client.render.entity.ItemEntityRenderer;
-import net.minecraft.client.render.item.ItemRenderer;
-import net.minecraft.client.render.model.BakedModel;
-import net.minecraft.client.render.model.json.ModelTransformationMode;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.util.math.random.Random;
-import org.joml.Quaternionf;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.EntityRendererProvider;
+import net.minecraft.client.renderer.entity.ItemEntityRenderer;
+import net.minecraft.client.renderer.entity.state.ItemEntityRenderState;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -30,99 +25,121 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+// NOTE: this mixin was the highest-effort/highest-risk item in the 26.1 port, per its own
+// plan (see reference/ or project notes). The old render(ItemEntity, float, float,
+// MatrixStack, VertexConsumerProvider, int) method this mixin used to cancel-and-replace
+// no longer exists at all - vanilla's rendering pipeline now splits "extraction" (reading
+// live entity/world state, once per frame, into a plain state object) from "submission"
+// (the actual PoseStack/draw calls, using only that state object - no live entity access).
+// This port:
+//   - stashes the live ItemEntity on the ItemEntityRenderState during extraction (see
+//     ItemEntityRenderStateMixin / InteracticRenderStateExtension), so submit() can still
+//     read entity.getYRot()/onGround()/getDeltaMovement()/isUnderWater() etc. the same way
+//     the original code did.
+//   - uses the already-resolved ItemStackRenderState (state.item) instead of manually
+//     fetching a BakedModel; per-copy drawing goes through state.item.submit(...) instead of
+//     ItemRenderer.renderItem(...).
+//   - drops the old manual re-application of the model's ground-transform scale/rotation via
+//     the PoseStack, since the resolved ItemStackRenderState is extracted with
+//     ItemDisplayContext.GROUND already and appears to bake that transform in internally;
+//     also drops the old BuiltinModelItemRenderer/isBuiltin() special-casing (the 1.21.1-era
+//     trident/shield-invisible-on-ground workaround) since that API no longer exists and the
+//     rewritten renderer may not have the same bug.
+//   - approximates the old "is this a chunky block-like model" (treatAsDepthModel/
+//     isFlatBlock) check using the resolved model's bounding box instead of querying the
+//     block's outline shape directly, mirroring the threshold vanilla's own submit() uses
+//     for its analogous flat-vs-3D-jitter item layout decision.
+// This has NOT been visually verified against a running client - budget time to compare it
+// side by side with the 1.21.1 branch's rendering before considering this port complete.
 @Mixin(ItemEntityRenderer.class)
-public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity> {
+public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity, ItemEntityRenderState> {
 
     @Unique private static final float TWO_PI = (float) (Math.PI * 2);
     @Unique private static final float HALF_PI = (float) (Math.PI * 0.5);
     @Unique private static final float THREE_HALF_PI = (float) (Math.PI * 1.5);
+    @Unique private static final float DEPTH_THRESHOLD = 0.0625F;
 
     @Shadow
     @Final
-    private Random random;
+    private RandomSource random;
 
-    @Shadow
-    @Final
-    private ItemRenderer itemRenderer;
-
-    private ItemEntityRendererMixin(EntityRendererFactory.Context dispatcher) {
-        super(dispatcher);
+    private ItemEntityRendererMixin(EntityRendererProvider.Context context) {
+        super(context);
     }
 
     @Inject(at = @At("RETURN"), method = "<init>")
-    private void onConstructor(EntityRendererFactory.Context context, CallbackInfo ci) {
+    private void onConstructor(EntityRendererProvider.Context context, CallbackInfo ci) {
         this.shadowRadius = 0;
     }
 
-    @Inject(at = @At("HEAD"), method = "render(Lnet/minecraft/entity/ItemEntity;FFLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V", cancellable = true)
-    private void render(ItemEntity entity, float f, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumerProvider, int light, CallbackInfo callback) {
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    private void stashEntity(ItemEntity entity, ItemEntityRenderState state, float partialTicks, CallbackInfo ci) {
+        ((InteracticRenderStateExtension) state).setInteracticEntity(entity);
+    }
+
+    @Inject(method = "submit", at = @At("HEAD"), cancellable = true)
+    private void submit(ItemEntityRenderState state, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, CameraRenderState camera, CallbackInfo callback) {
         if (!InteracticInit.getConfig().fancyItemRendering()) return;
+        if (state.item.isEmpty()) return;
 
-        ItemStack itemStack = entity.getStack();
+        ItemEntity entity = ((InteracticRenderStateExtension) state).getInteracticEntity();
+        if (entity == null) return;
 
-        // Calculate the random seed for this specific item so that we can use random values
-        // This works differently to the vanilla one to create differences between item entities of the same type
-        int seed = itemStack.isEmpty() ? 187 : Item.getRawId(itemStack.getItem()) * entity.getId();
+        // Custom seed distinct from vanilla's (item+damage only) so item entities of the
+        // same type/stack don't all render identically.
+        int seed = state.seed * (entity.getId() + 1);
         this.random.setSeed(seed);
 
-        matrices.push();
+        poseStack.pushPose();
 
-        BakedModel bakedModel = this.itemRenderer.getModel(itemStack, entity.getWorld(), null, seed);
-        int stackCount = itemStack.getCount();
-        final int renderCount = stackCount > 48 ? 5 : stackCount > 32 ? 4 : stackCount > 16 ? 3 : stackCount > 1 ? 2 : 1;
+        final int renderCount = state.count;
         InteracticItemExtensions rotator = (InteracticItemExtensions) entity;
 
-        final var item = itemStack.getItem();
-        final boolean treatAsDepthModel = item instanceof BlockItem && bakedModel.hasDepth();
+        final AABB boundingBox = state.item.getModelBoundingBox();
+        final boolean treatAsDepthModel = boundingBox.getZsize() > DEPTH_THRESHOLD;
+        final float scaleZ = 1f;
 
-        final var transform = bakedModel.getTransformation().ground;
-
-        final float scaleX = transform.scale.x;
-        final float scaleY = transform.scale.y;
-        final float scaleZ = transform.scale.z;
-
-        // Calculate the distance the model's center is from the item entity's center using the block outline shape
-        final double blockHeight = !treatAsDepthModel ? 0 : ((BlockItem) item).getBlock().getDefaultState().getOutlineShape(entity.getWorld(), entity.getBlockPos(), ShapeContext.absent()).getMax(Direction.Axis.Y);
+        final double blockHeight = !treatAsDepthModel ? 0 : boundingBox.getYsize();
         final boolean isFlatBlock = treatAsDepthModel && blockHeight <= 0.75;
         final double distanceToCenter = (0.5 - blockHeight + blockHeight / 2) * 0.25;
 
         // Translate so that everything happens in the middle of the item hitbox
-        matrices.translate(0, 0.125f, 0);
+        poseStack.translate(0, 0.125f, 0);
 
         // Move the model, so it's center is at the base of the item entity
-        if (treatAsDepthModel) matrices.translate(0, distanceToCenter, 0);
+        if (treatAsDepthModel) poseStack.translate(0, distanceToCenter, 0);
 
         // Calculate ground distance from either the amount of items or block height
         float groundDistance = treatAsDepthModel ? (float) distanceToCenter : (float) (0.125 - 0.0625 * scaleZ);
         if (!treatAsDepthModel) groundDistance -= (renderCount - 1) * 0.05f * scaleZ;
-        matrices.translate(0, -groundDistance, 0);
+        poseStack.translate(0, -groundDistance, 0);
 
         // Translate randomly to avoid Z-Fighting
-        matrices.translate(0, (random.nextDouble() - 0.5) * 0.005, 0);
-        if (treatAsDepthModel && !isFlatBlock) matrices.translate(0, -.1, 0);
+        poseStack.translate(0, (random.nextDouble() - 0.5) * 0.005, 0);
+        if (treatAsDepthModel && !isFlatBlock) poseStack.translate(0, -.1, 0);
 
         // Rotate the item by its yaw to get some randomness for the spinning axis
-        matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(entity.getYaw()));
+        poseStack.mulPose(Axis.YP.rotationDegrees(entity.getYRot()));
 
         // Calculate rotation based on velocity or get the one the item had before it hit the ground
         if (rotator.getRotation() == -1) rotator.setRotation((random.nextInt(20) - 10) * 0.15f);
-        float angle = entity.isOnGround() ? rotator.getRotation() : (float) (rotator.getRotation() + ((MathHelper.clamp(entity.getVelocity().y * 0.25, 0.075, 0.3))) * (entity.isSubmergedInWater() ? 0.25f : 1) * (InteracticRenderState.frameDuration * 5) * InteracticInit.getItemRotationSpeedMultiplier());
+        float angle = entity.onGround() ? rotator.getRotation() : (float) (rotator.getRotation() + ((Mth.clamp(entity.getDeltaMovement().y * 0.25, 0.075, 0.3))) * (entity.isUnderWater() ? 0.25f : 1) * (InteracticRenderState.frameDuration * 5) * InteracticInit.getItemRotationSpeedMultiplier());
 
         // Make sure the angle never exceeds two pi
         if (angle >= TWO_PI) angle -= TWO_PI;
 
         // Clusterfuck our way back to either 0 or 180 degrees
-        if (entity.isOnGround() && !(angle == 0 || angle == (float) Math.PI)) {
+        if (entity.onGround() && !(angle == 0 || angle == (float) Math.PI)) {
             if (angle > Math.PI) {
-                if (angle > THREE_HALF_PI) angle += tickDelta * 0.5f;
+                if (angle > THREE_HALF_PI) angle += 0.5f;
                 else {
-                    angle -= tickDelta * 0.5f;
+                    angle -= 0.5f;
                 }
             } else {
                 if (angle > HALF_PI) {
-                    angle += tickDelta * 0.5f;
+                    angle += 0.5f;
                     if (angle > Math.PI) angle = (float) Math.PI;
-                } else angle -= tickDelta * 0.5f;
+                } else angle -= 0.5f;
             }
 
             if (angle < 0) angle = 0;
@@ -130,25 +147,25 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
         }
 
         // Move the matrix back so the rotation happens around the model's center
-        if (treatAsDepthModel) matrices.translate(0, -distanceToCenter, 0);
+        if (treatAsDepthModel) poseStack.translate(0, -distanceToCenter, 0);
 
         // Spin the item and store the value inside it should it hit the ground next tick
-        matrices.multiply(RotationAxis.POSITIVE_X.rotation(angle + (isFlatBlock ? 0 : HALF_PI)));
+        poseStack.mulPose(Axis.XP.rotation(angle + (isFlatBlock ? 0 : HALF_PI)));
         rotator.setRotation(angle);
 
         // If the block is chonky, rotate it randomly
         if (treatAsDepthModel && !isFlatBlock && !InteracticInit.getConfig().blocksLayFlat()) {
-            matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(this.random.nextFloat() * 45));
-            matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(this.random.nextFloat() * 45));
+            poseStack.mulPose(Axis.YP.rotationDegrees(this.random.nextFloat() * 45));
+            poseStack.mulPose(Axis.ZP.rotationDegrees(this.random.nextFloat() * 45));
         }
 
         // Undo the translation from before
         if (treatAsDepthModel) {
-            matrices.translate(0, distanceToCenter, 0);
+            poseStack.translate(0, distanceToCenter, 0);
         }
 
         // Translate so that the origin gets moved back for stacks with multiple items rendered
-        matrices.translate(0, 0, ((0.09375 - (renderCount * 0.1)) * 0.5) * scaleZ);
+        poseStack.translate(0, 0, ((0.09375 - (renderCount * 0.1)) * 0.5) * scaleZ);
 
         float x;
         float y;
@@ -156,7 +173,7 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
         for (int i = 0; i < renderCount; ++i) {
 
             // Only apply random transformation to the current item
-            matrices.push();
+            poseStack.pushPose();
 
             // Only apply transformations to items from the second one onward
             if (i > 0) {
@@ -167,36 +184,26 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity>
                     x = (this.random.nextFloat() * 2f - 1f) * .1f;
                     y = (this.random.nextFloat() * 2f - 1f) * .1f;
                     float z = (this.random.nextFloat() * 2f - 1f) * .1f;
-                    matrices.translate(x, y, z);
+                    poseStack.translate(x, y, z);
                 } else {
-                    matrices.translate(0, 0.125f, 0.0D);
-                    matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees((this.random.nextFloat() - 0.5f)));
-                    matrices.translate(0, -0.125f, 0.0D);
+                    poseStack.translate(0, 0.125f, 0.0D);
+                    poseStack.mulPose(Axis.ZP.rotationDegrees((this.random.nextFloat() - 0.5f)));
+                    poseStack.translate(0, -0.125f, 0.0D);
                 }
             }
 
-            if (!bakedModel.isBuiltin()) {
-                // Only apply the scale and rotation part of the model transform to avoid weird issues with alignment and rotation
-                matrices.multiply(new Quaternionf().rotateXYZ(transform.rotation.x, transform.rotation.y, transform.rotation.z));
-                matrices.scale(scaleX, scaleY, scaleZ);
-                this.itemRenderer.renderItem(itemStack, ModelTransformationMode.NONE, false, matrices, vertexConsumerProvider, light, OverlayTexture.DEFAULT_UV, bakedModel);
-            } else {
-                // Built-in models (trident, shield) need GROUND mode for BuiltinModelItemRenderer to render.
-                // Pre-cancel the ground display's translation so our positioning logic stays accurate.
-                matrices.translate(-transform.translation.x / 16f, -transform.translation.y / 16f, -transform.translation.z / 16f);
-                this.itemRenderer.renderItem(itemStack, ModelTransformationMode.GROUND, false, matrices, vertexConsumerProvider, light, OverlayTexture.DEFAULT_UV, bakedModel);
-            }
+            state.item.submit(poseStack, submitNodeCollector, state.lightCoords, OverlayTexture.NO_OVERLAY, state.outlineColor);
 
-            matrices.pop();
+            poseStack.popPose();
 
             // Translate normal items to create visual layering
             if (!treatAsDepthModel) {
-                matrices.translate(0, 0, 0.1F * scaleZ);
+                poseStack.translate(0, 0, 0.1F * scaleZ);
             }
         }
 
-        matrices.pop();
-        super.render(entity, f, tickDelta, matrices, vertexConsumerProvider, light);
+        poseStack.popPose();
+        super.submit(state, poseStack, submitNodeCollector, camera);
         callback.cancel();
     }
 }

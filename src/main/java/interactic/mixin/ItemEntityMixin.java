@@ -4,14 +4,17 @@ import interactic.InteracticInit;
 import interactic.util.Helpers;
 import interactic.util.InteracticItemExtensions;
 import interactic.util.ItemDamageSource;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.entity.*;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.world.World;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.entity.EntityTypeTest;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -23,7 +26,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ItemEntityMixin extends Entity implements InteracticItemExtensions {
 
     @Shadow
-    public abstract ItemStack getStack();
+    public abstract ItemStack getItem();
 
     @Shadow
     private int itemAge;
@@ -41,8 +44,8 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
     @Unique
     private boolean wasFullPower;
 
-    private ItemEntityMixin(EntityType<?> type, World world) {
-        super(type, world);
+    private ItemEntityMixin(EntityType<?> type, Level level) {
+        super(type, level);
     }
 
     @Override
@@ -65,8 +68,8 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
         this.wasFullPower = true;
     }
 
-    @Inject(method = "onPlayerCollision", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/ItemEntity;getStack()Lnet/minecraft/item/ItemStack;", ordinal = 0), cancellable = true)
-    private void controlPickup(PlayerEntity player, CallbackInfo ci) {
+    @Inject(method = "playerTouch", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/item/ItemEntity;getItem()Lnet/minecraft/world/item/ItemStack;", ordinal = 0), cancellable = true)
+    private void controlPickup(Player player, CallbackInfo ci) {
         if (Helpers.canPlayerPickUpItem(player, (ItemEntity) (Object) this)) return;
         ci.cancel();
     }
@@ -76,44 +79,45 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
         if (!InteracticInit.getConfig().itemsActAsProjectiles()) return;
         if (itemAge < 2) return;
 
-        var world = this.getWorld();
-        if (world.isClient) return;
+        var level = this.level();
+        if (level.isClientSide()) return;
+        var serverLevel = (ServerLevel) level;
 
-        if (this.isOnGround()) this.wasThrown = false;
+        if (this.onGround()) this.wasThrown = false;
         if (!this.wasThrown) return;
 
-        var component = this.getStack().get(DataComponentTypes.ATTRIBUTE_MODIFIERS);
+        var component = this.getItem().get(DataComponents.ATTRIBUTE_MODIFIERS);
         boolean hasDamageModifiers = component != null && component.modifiers().stream()
-                .anyMatch(e -> e.attribute().equals(EntityAttributes.GENERIC_ATTACK_DAMAGE));
+                .anyMatch(e -> e.attribute().equals(Attributes.ATTACK_DAMAGE));
 
         if (!(this.wasFullPower || hasDamageModifiers)) return;
 
         final double damage = hasDamageModifiers
                 ? component.modifiers().stream()
-                        .filter(e -> e.attribute().equals(EntityAttributes.GENERIC_ATTACK_DAMAGE)
-                                && e.modifier().operation() == EntityAttributeModifier.Operation.ADD_VALUE)
-                        .mapToDouble(e -> e.modifier().value()).sum()
+                        .filter(e -> e.attribute().equals(Attributes.ATTACK_DAMAGE)
+                                && e.modifier().operation() == AttributeModifier.Operation.ADD_VALUE)
+                        .mapToDouble(e -> e.modifier().amount()).sum()
                 : 2;
 
-        final var entities = world.getNonSpectatingEntities(LivingEntity.class, this.getBoundingBox().expand(0.15));
+        final var entities = level.getEntities(EntityTypeTest.forClass(LivingEntity.class), this.getBoundingBox().inflate(0.15), e -> !e.isSpectator());
         if (entities.isEmpty()) return;
 
         final var target = entities.getFirst();
         final var damageSource = new ItemDamageSource((ItemEntity) (Object) this, this.getOwner());
 
-        if (target.hurtTime != 0 || target.isInvulnerableTo(damageSource)) return;
+        if (target.hurtTime != 0 || target.isInvulnerableTo(serverLevel, damageSource)) return;
 
-        target.damage(damageSource, (float) damage);
+        target.hurtServer(serverLevel, damageSource, (float) damage);
 
-        var stack = this.getStack();
-        if (stack.isDamageable()) {
-            stack.setDamage(stack.getDamage() + 1);
-            if (stack.getDamage() >= stack.getMaxDamage()) this.discard();
+        var stack = this.getItem();
+        if (stack.isDamageableItem()) {
+            stack.setDamageValue(stack.getDamageValue() + 1);
+            if (stack.getDamageValue() >= stack.getMaxDamage()) this.remove(Entity.RemovalReason.DISCARDED);
         }
     }
 
     @Override
-    public float getTargetingMargin() {
+    public float getPickRadius() {
         return .2f;
     }
 }

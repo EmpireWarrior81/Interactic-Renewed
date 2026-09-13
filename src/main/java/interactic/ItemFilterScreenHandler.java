@@ -2,32 +2,32 @@ package interactic;
 
 import interactic.network.SetFilterModePayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.screen.ScreenHandler;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 
-public class ItemFilterScreenHandler extends ScreenHandler {
+public class ItemFilterScreenHandler extends AbstractContainerMenu {
 
     public static final int SLOT_COUNT = 9;
-    private final Inventory inventory;
-    private final PlayerEntity player;
+    private final Container inventory;
+    private final Player player;
 
-    public ItemFilterScreenHandler(int syncId, PlayerInventory playerInventory) {
-        this(syncId, playerInventory, new SimpleInventory(SLOT_COUNT));
+    public ItemFilterScreenHandler(int syncId, Inventory playerInventory) {
+        this(syncId, playerInventory, new SimpleContainer(SLOT_COUNT));
     }
 
-    public ItemFilterScreenHandler(int syncId, PlayerInventory playerInventory, Inventory inventory) {
+    public ItemFilterScreenHandler(int syncId, Inventory playerInventory, Container inventory) {
         super(InteracticInit.ITEM_FILTER_SCREEN_HANDLER, syncId);
         this.inventory = inventory;
-        checkSize(inventory, SLOT_COUNT);
+        checkContainerSize(inventory, SLOT_COUNT);
 
         this.player = playerInventory.player;
-        inventory.onOpen(player);
+        inventory.startOpen(player);
 
         int m;
         for (m = 0; m < SLOT_COUNT; ++m) {
@@ -48,32 +48,33 @@ public class ItemFilterScreenHandler extends ScreenHandler {
     public void setFilterMode(boolean mode) {
         if (!(inventory instanceof ItemFilterItem.FilterInventory filterInventory)) return;
         filterInventory.setFilterMode(mode);
-        ServerPlayNetworking.send((ServerPlayerEntity) player, new SetFilterModePayload(mode));
-    }
-
-    public boolean canUse(PlayerEntity player) {
-        return this.inventory.canPlayerUse(player);
+        ServerPlayNetworking.send((ServerPlayer) player, new SetFilterModePayload(mode));
     }
 
     @Override
-    public ItemStack quickMove(PlayerEntity player, int index) {
+    public boolean stillValid(Player player) {
+        return this.inventory.stillValid(player);
+    }
+
+    @Override
+    public ItemStack quickMoveStack(Player player, int index) {
         ItemStack itemStack = ItemStack.EMPTY;
-        Slot slot = (Slot) this.slots.get(index);
-        if (slot.hasStack()) {
-            ItemStack itemStack2 = slot.getStack();
+        Slot slot = this.slots.get(index);
+        if (slot.hasItem()) {
+            ItemStack itemStack2 = slot.getItem();
             itemStack = itemStack2.copy();
-            if (index < this.inventory.size()) {
-                if (!this.insertItem(itemStack2, this.inventory.size(), this.slots.size(), true)) {
+            if (index < this.inventory.getContainerSize()) {
+                if (!this.moveItemStackTo(itemStack2, this.inventory.getContainerSize(), this.slots.size(), true)) {
                     return ItemStack.EMPTY;
                 }
-            } else if (!this.insertItem(itemStack2, 0, this.inventory.size(), false)) {
+            } else if (!this.moveItemStackTo(itemStack2, 0, this.inventory.getContainerSize(), false)) {
                 return ItemStack.EMPTY;
             }
 
             if (itemStack2.isEmpty()) {
-                slot.setStack(ItemStack.EMPTY);
+                slot.set(ItemStack.EMPTY);
             } else {
-                slot.markDirty();
+                slot.setChanged();
             }
         }
 
@@ -81,26 +82,26 @@ public class ItemFilterScreenHandler extends ScreenHandler {
     }
 
     @Override
-    public void onClosed(PlayerEntity playerEntity) {
-        super.onClosed(playerEntity);
-        this.inventory.onClose(playerEntity);
+    public void removed(Player player) {
+        super.removed(player);
+        this.inventory.stopOpen(player);
     }
 
     private static class GhostSlot extends Slot {
 
-        public GhostSlot(Inventory inventory, int index, int x, int y) {
+        public GhostSlot(Container inventory, int index, int x, int y) {
             super(inventory, index, x, y);
         }
 
         @Override
-        public boolean canInsert(ItemStack stack) {
-            this.setStack(new ItemStack(stack.getItem()));
+        public boolean mayPlace(ItemStack stack) {
+            this.set(new ItemStack(stack.getItem()));
             return false;
         }
 
         @Override
-        public boolean canTakeItems(PlayerEntity playerEntity) {
-            this.setStack(ItemStack.EMPTY);
+        public boolean mayPickup(Player player) {
+            this.set(ItemStack.EMPTY);
             return false;
         }
     }
