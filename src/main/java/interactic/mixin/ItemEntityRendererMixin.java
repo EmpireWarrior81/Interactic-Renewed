@@ -1,6 +1,7 @@
 package interactic.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.logging.LogUtils;
 import com.mojang.math.Axis;
 import interactic.InteracticInit;
 import interactic.util.InteracticItemExtensions;
@@ -17,6 +18,8 @@ import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.core.registries.BuiltInRegistries;
+import org.slf4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -24,6 +27,8 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 // NOTE: this mixin was the highest-effort/highest-risk item in the 26.1 port, per its own
 // plan (see reference/ or project notes). The old render(ItemEntity, float, float,
@@ -58,6 +63,8 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
     @Unique private static final float HALF_PI = (float) (Math.PI * 0.5);
     @Unique private static final float THREE_HALF_PI = (float) (Math.PI * 1.5);
     @Unique private static final float DEPTH_THRESHOLD = 0.0625F;
+    @Unique private static final Logger INTERACTIC_LOGGER = LogUtils.getLogger();
+    @Unique private static final AtomicInteger INTERACTIC_DEBUG_LOG_COUNT = new AtomicInteger(0);
 
     @Shadow
     @Final
@@ -126,6 +133,17 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
             double halfZ = boundingBox.getZsize() / 2.0;
             double safeRadius = Math.sqrt(halfY * halfY + halfZ * halfZ);
             poseStack.translate(0, safeRadius - centerY, 0);
+
+            if (INTERACTIC_DEBUG_LOG_COUNT.get() < 30) {
+                INTERACTIC_DEBUG_LOG_COUNT.incrementAndGet();
+                INTERACTIC_LOGGER.info(
+                    "[interactic-debug] item={} bbox=({},{},{})-({},{},{}) centerY={} safeRadius={} onGround={} angle={} isFlatBlock={} renderCount={}",
+                    BuiltInRegistries.ITEM.getKey(entity.getItem().getItem()),
+                    boundingBox.minX, boundingBox.minY, boundingBox.minZ,
+                    boundingBox.maxX, boundingBox.maxY, boundingBox.maxZ,
+                    centerY, safeRadius, entity.onGround(), rotator.getRotation(), isFlatBlock, renderCount
+                );
+            }
         }
 
         // Calculate ground distance from the amount of items rendered
