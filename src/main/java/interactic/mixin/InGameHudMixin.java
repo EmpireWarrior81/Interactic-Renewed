@@ -33,7 +33,7 @@ public class InGameHudMixin {
         if (!InteracticInit.getConfig().renderItemTooltips()) return;
 
         final var client = Minecraft.getInstance();
-        final var item = Helpers.raycastItem(client.getCameraEntity(), 5);
+        final var item = Helpers.raycastItem(client.getCameraEntity(), 5, "tooltip");
 
         if (debug) {
             INTERACTIC_DEBUG_LOG_COUNT.incrementAndGet();
