@@ -107,49 +107,46 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
         final float scaleZ = 1f;
 
         // Note: getModelBoundingBox() is measured AFTER the model's GROUND-context transform
-        // is already applied (unlike the old block-outline-shape query this used to mirror),
-        // so a hand-tuned block-height-based Y reposition on top of that double-applies an
-        // offset - that was causing chunky/block items to render in the wrong place (and
-        // sometimes get culled entirely) while flat items, which skip this branch, rendered
-        // fine.
+        // is already applied (unlike the old block-outline-shape query this used to mirror).
         //
-        // Lifting by just -boundingBox.minY (the model's lowest point when unrotated) still
-        // clips intermittently: the block spins around the X axis while falling and settling
-        // (see the angle/rotation-snap logic below), and a lift computed for the *unrotated*
-        // orientation only guarantees the bottom face clears the ground in that one
-        // orientation - mid-spin, a different point of the model becomes the lowest one and
-        // can dip below ground again. Instead, lift the model's *center* by the radius of its
-        // Y/Z bounding circle - the maximum distance any point can be from the center after
-        // an X-axis rotation, regardless of angle - which guarantees no point ever goes below
-        // Y=0 at any rotation, not just the resting one.
+        // Diagnostic logging showed the real cause of the previous two attempts still
+        // clipping: the model's own local origin (Y=0/Z=0, the point our rotation actually
+        // pivots around, since we rotate BEFORE calling submit()) is NOT at the bounding
+        // box's center - e.g. for minecraft:grass_block, bbox Y ran from 0.0625 to 0.3125,
+        // meaning local Y=0 sits 0.0625 *below* the model entirely, not in the middle of it.
+        // Rotating around the box's center (the previous attempt) therefore used too small a
+        // radius - the true worst-case distance from the pivot (local origin) to the model's
+        // farthest corner is bigger. Fixed to measure from the actual pivot instead of an
+        // assumed center. Also stopped applying the shared flat-item groundDistance offset on
+        // top for depth models - its constants are tuned for thin flat sprites, and were
+        // undoing part of this lift.
         final boolean isFlatBlock = treatAsDepthModel && boundingBox.getYsize() <= 0.75;
 
         // Translate so that everything happens in the middle of the item hitbox
         poseStack.translate(0, 0.125f, 0);
 
         if (treatAsDepthModel) {
-            double centerY = (boundingBox.minY + boundingBox.maxY) / 2.0;
-            double halfY = boundingBox.getYsize() / 2.0;
-            double halfZ = boundingBox.getZsize() / 2.0;
-            double safeRadius = Math.sqrt(halfY * halfY + halfZ * halfZ);
-            poseStack.translate(0, safeRadius - centerY, 0);
+            double farY = Math.max(Math.abs(boundingBox.minY), Math.abs(boundingBox.maxY));
+            double farZ = Math.max(Math.abs(boundingBox.minZ), Math.abs(boundingBox.maxZ));
+            double safeRadius = Math.sqrt(farY * farY + farZ * farZ);
+            poseStack.translate(0, safeRadius, 0);
 
             if (INTERACTIC_DEBUG_LOG_COUNT.get() < 30) {
                 INTERACTIC_DEBUG_LOG_COUNT.incrementAndGet();
                 INTERACTIC_LOGGER.info(
-                    "[interactic-debug] item={} bbox=({},{},{})-({},{},{}) centerY={} safeRadius={} onGround={} angle={} isFlatBlock={} renderCount={}",
+                    "[interactic-debug] item={} bbox=({},{},{})-({},{},{}) safeRadius={} onGround={} angle={} isFlatBlock={} renderCount={}",
                     BuiltInRegistries.ITEM.getKey(entity.getItem().getItem()),
                     boundingBox.minX, boundingBox.minY, boundingBox.minZ,
                     boundingBox.maxX, boundingBox.maxY, boundingBox.maxZ,
-                    centerY, safeRadius, entity.onGround(), rotator.getRotation(), isFlatBlock, renderCount
+                    safeRadius, entity.onGround(), rotator.getRotation(), isFlatBlock, renderCount
                 );
             }
+        } else {
+            // Calculate ground distance from the amount of items rendered (flat items only)
+            float groundDistance = (float) (0.125 - 0.0625 * scaleZ);
+            groundDistance -= (renderCount - 1) * 0.05f * scaleZ;
+            poseStack.translate(0, -groundDistance, 0);
         }
-
-        // Calculate ground distance from the amount of items rendered
-        float groundDistance = (float) (0.125 - 0.0625 * scaleZ);
-        groundDistance -= (renderCount - 1) * 0.05f * scaleZ;
-        poseStack.translate(0, -groundDistance, 0);
 
         // Translate randomly to avoid Z-Fighting
         poseStack.translate(0, (random.nextDouble() - 0.5) * 0.005, 0);
