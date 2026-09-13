@@ -114,7 +114,17 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
         // pivots around, since we rotate BEFORE calling submit()) is NOT at the bounding
         // box's center - e.g. for minecraft:grass_block, bbox Y ran from 0.0625 to 0.3125,
         // meaning local Y=0 sits 0.0625 *below* the model entirely, not in the middle of it.
-        final boolean isFlatBlock = treatAsDepthModel && boundingBox.getYsize() <= 0.75;
+        //
+        // isFlatBlock's old threshold (Ysize <= 0.75) was tuned for the old block-outline-shape
+        // measurement, on a 0-1 "fraction of a full block" scale. getModelBoundingBox() uses a
+        // different, much smaller scale entirely - a full cube like grass_block measured
+        // Ysize=0.25 there, well under 0.75, so every block was misclassified as "flat" and
+        // never got the chonky random-tumble treatment. Compare against the model's own
+        // horizontal footprint instead of an absolute number, so it's independent of whatever
+        // scale GROUND context happens to use: short relative to its footprint (a slab, a
+        // carpet) reads as flat, roughly as tall as it is wide (a full block) reads as chonky.
+        final boolean isFlatBlock = treatAsDepthModel
+                && boundingBox.getYsize() <= Math.max(boundingBox.getXsize(), boundingBox.getZsize()) * 0.75;
 
         // Calculate rotation based on velocity or get the one the item had before it hit the ground.
         // Computed up front (rather than after positioning, like the original code did) so the

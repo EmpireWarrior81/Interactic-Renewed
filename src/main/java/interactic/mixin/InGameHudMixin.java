@@ -30,7 +30,7 @@ public class InGameHudMixin {
         if (item == null || client.level == null) return;
 
         List<Component> tooltip = InteracticInit.getConfig().renderFullTooltip()
-                ? item.getItem().getTooltipLines(Item.TooltipContext.EMPTY, client.player, TooltipFlag.NORMAL)
+                ? item.getItem().getTooltipLines(Item.TooltipContext.of(client.level), client.player, TooltipFlag.NORMAL)
                 : Collections.singletonList(item.getItem().getHoverName());
 
         final int screenWidth = client.getWindow().getGuiScaledWidth();
