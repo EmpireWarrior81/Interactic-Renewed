@@ -13,7 +13,9 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.flag.FeatureFlags;
@@ -59,7 +61,8 @@ public class InteracticInit implements ModInitializer {
         if (FabricLoader.getInstance().isModLoaded("iris")) itemRotationSpeedMultiplier = 0.5f;
 
         if (CONFIG.itemFilterEnabled()) {
-            ITEM_FILTER = Registry.register(BuiltInRegistries.ITEM, Identifier.fromNamespaceAndPath(MOD_ID, "item_filter"), new ItemFilterItem());
+            ResourceKey<Item> itemFilterKey = ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(MOD_ID, "item_filter"));
+            ITEM_FILTER = Registry.register(BuiltInRegistries.ITEM, itemFilterKey, new ItemFilterItem(itemFilterKey));
 
             ServerPlayNetworking.registerGlobalReceiver(FilterModeRequestPayload.TYPE, (payload, context) -> {
                 context.server().execute(() -> {
