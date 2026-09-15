@@ -5,7 +5,7 @@ import interactic.util.Helpers;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.network.chat.Component;
@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.Collections;
 import java.util.List;
 
-@Mixin(Gui.class)
+@Mixin(Hud.class)
 public class InGameHudMixin {
 
     @Inject(method = "extractCrosshair", at = @At("TAIL"))
