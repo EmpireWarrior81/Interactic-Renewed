@@ -85,7 +85,7 @@ public abstract class MinecraftClientMixin {
             dropPower += 0.075;
             if (dropPower > 5) dropPower = 5;
             if (dropPower >= 1.5)
-                ((Minecraft) (Object) this).gui.setOverlayMessage(Component.literal("Power: " + BigDecimal.valueOf(Math.max(dropPower, 1)).setScale(1, RoundingMode.HALF_UP)), false);
+                ((Minecraft) (Object) this).gui.hud.setOverlayMessage(Component.literal("Power: " + BigDecimal.valueOf(Math.max(dropPower, 1)).setScale(1, RoundingMode.HALF_UP)), false);
             return false;
         } else {
             return clientPlayerEntity.drop(dropEntireStack);

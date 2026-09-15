@@ -27,7 +27,7 @@ public class InteracticClientInit implements ClientModInitializer {
 
             ClientPlayNetworking.registerGlobalReceiver(SetFilterModePayload.TYPE, (payload, context) -> {
                 context.client().execute(() -> {
-                    if (!(context.client().screen instanceof ItemFilterScreen screen)) return;
+                    if (!(context.client().gui.screen() instanceof ItemFilterScreen screen)) return;
                     screen.blockMode = payload.mode();
                 });
             });
