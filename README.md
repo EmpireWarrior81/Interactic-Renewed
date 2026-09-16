@@ -5,7 +5,7 @@
 
 A maintained fork of [Interactic](https://modrinth.com/mod/interactic) by glisco — bringing the beloved item interaction mod to modern Minecraft with bug fixes and continued support.
 
-**This branch targets Minecraft 1.21.1.** — [Switch to 1.21.4](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.4) | [Switch to 1.20.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.20.1)
+**This branch targets Minecraft 26.2.**
 
 ---
 
@@ -43,7 +43,7 @@ All server-side features disable automatically when playing on a server without 
 
 The original [Interactic](https://modrinth.com/mod/interactic) by glisco is no longer updated. Interactic Renewed picks up where it left off:
 
-- **Updated to modern Minecraft** — actively maintained for 1.20.1 and 1.21.1
+- **Updated to modern Minecraft** — actively maintained across Minecraft 1.20.1 through 26.2
 - **ItemFilter inventory fixed** — items in the filter were sometimes lost on reload. Fixed.
 - **Partial stack removal fixed** — removing items from the filter always deleted the full stack regardless of how many were requested. Fixed.
 - **Deprecated API cleaned up** — several outdated API calls that could cause issues on newer Fabric versions have been replaced.
@@ -56,18 +56,22 @@ The original [Interactic](https://modrinth.com/mod/interactic) by glisco is no l
 
 | Minecraft | Branch | Status |
 |-----------|--------|--------|
-| 1.21.4 | [1.21.4](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.4) | Active |
+| 26.2 | [main](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/main) | Active |
+| 26.1.2 | [26.1.2](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/26.1.2) | Active |
+| 26.1.1 | [26.1.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/26.1.1) | Active |
+| 26.1 | [26.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/26.1) | Active |
+| 1.21.4 | [1.21.4](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.4) | Legacy |
 | 1.21.1 | [1.21.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.21.1) | Active |
-| 1.20.1 | [master](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/master) / [1.20.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.20.1) | Active |
+| 1.20.1 | [1.20.1](https://github.com/EmpireWarrior81/Interactic-Renewed/tree/1.20.1) | Active |
 
 ---
 
 ## Installation
 
 **Required:**
-- [Fabric Loader](https://fabricmc.net/use/installer/) >= 0.19.2
+- [Fabric Loader](https://fabricmc.net/use/installer/) >= 0.19.5
 - [Fabric API](https://modrinth.com/mod/fabric-api)
-- [owo-lib](https://modrinth.com/mod/owo-lib) >= 0.12.15
+- [owo-lib](https://modrinth.com/mod/owo-lib) >= 0.13.1
 
 ---
 
