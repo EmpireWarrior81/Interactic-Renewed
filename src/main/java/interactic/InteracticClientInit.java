@@ -1,51 +1,52 @@
 package interactic;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import empire.ewlib.config.ui.ConfigScreenProviders;
 import interactic.network.PickupPayload;
 import interactic.network.SetFilterModePayload;
 import interactic.util.InteracticRenderState;
-import io.wispforest.owo.config.ui.ConfigScreen;
-import net.minecraft.Util;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.item.ItemProperties;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Util;
 import net.minecraft.world.InteractionHand;
 import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
 @Mod(value = InteracticInit.MOD_ID, dist = Dist.CLIENT)
-@EventBusSubscriber(modid = InteracticInit.MOD_ID, value = Dist.CLIENT)
 public class InteracticClientInit {
 
     public static final KeyMapping PICKUP_ITEM = new KeyMapping("key.interactic.pickup_item",
-            InputConstants.UNKNOWN.getValue(), "key.categories.misc");
+            InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC);
 
-    public InteracticClientInit() {
-        ItemProperties.registerGeneric(ResourceLocation.fromNamespaceAndPath("interactic", "enabled"), (stack, level, entity, seed) -> {
-            var data = stack.get(DataComponents.CUSTOM_DATA);
-            return data != null && data.copyTag().getBoolean("Enabled") ? 1 : 0;
-        });
+    public InteracticClientInit(IEventBus modEventBus) {
+        modEventBus.addListener((RegisterKeyMappingsEvent event) -> event.register(PICKUP_ITEM));
 
-        ConfigScreen.registerProvider("interactic", InteracticConfigScreen::new);
+        if (InteracticInit.getConfig().itemFilterEnabled()) {
+            modEventBus.addListener((RegisterMenuScreensEvent event) -> event.register(InteracticInit.getItemFilterMenu(), ItemFilterScreen::new));
+        }
+
+        modEventBus.addListener((RegisterClientPayloadHandlersEvent event) -> event.register(SetFilterModePayload.TYPE, (payload, context) -> context.enqueueWork(() -> {
+            if (!(Minecraft.getInstance().screen instanceof ItemFilterScreen screen)) return;
+            screen.blockMode = payload.mode();
+        })));
 
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {
             var client = Minecraft.getInstance();
             while (PICKUP_ITEM.consumeClick()) {
-                PacketDistributor.sendToServer(new PickupPayload());
+                ClientPacketDistributor.sendToServer(new PickupPayload());
                 client.player.swing(InteractionHand.MAIN_HAND);
             }
         });
+
+        ConfigScreenProviders.register("interactic", InteracticConfigScreen::new);
 
         NeoForge.EVENT_BUS.addListener((RenderFrameEvent.Pre event) -> {
             long now = Util.getMillis();
@@ -54,25 +55,5 @@ public class InteracticClientInit {
             }
             InteracticRenderState.lastFrameMs = now;
         });
-    }
-
-    @SubscribeEvent
-    static void registerKeyMappings(RegisterKeyMappingsEvent event) {
-        event.register(PICKUP_ITEM);
-    }
-
-    @SubscribeEvent
-    static void registerMenuScreens(RegisterMenuScreensEvent event) {
-        if (!InteracticInit.getConfig().itemFilterEnabled()) return;
-        event.register(InteracticInit.ITEM_FILTER_MENU.get(), ItemFilterScreen::new);
-    }
-
-    @SubscribeEvent
-    static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("1");
-        registrar.playToClient(SetFilterModePayload.TYPE, SetFilterModePayload.STREAM_CODEC, (payload, context) -> context.enqueueWork(() -> {
-            if (!(Minecraft.getInstance().screen instanceof ItemFilterScreen screen)) return;
-            screen.blockMode = payload.mode();
-        }));
     }
 }

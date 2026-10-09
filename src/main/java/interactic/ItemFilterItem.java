@@ -3,14 +3,14 @@ package interactic;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -18,32 +18,34 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.component.CustomModelData;
 import net.minecraft.world.level.Level;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
 
 public class ItemFilterItem extends Item {
 
-    public ItemFilterItem() {
-        super(new Properties().stacksTo(1));
+    public ItemFilterItem(ResourceKey<Item> key) {
+        super(new Properties().setId(key).stacksTo(1));
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player user, InteractionHand hand) {
+    public InteractionResult use(Level level, Player user, InteractionHand hand) {
         final var playerStack = user.getItemInHand(hand);
         if (user.isShiftKeyDown()) {
             var nbt = playerStack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-            var enabled = nbt.getBoolean("Enabled");
+            var enabled = nbt.getBooleanOr("Enabled", false);
             nbt.putBoolean("Enabled", !enabled);
             playerStack.set(DataComponents.CUSTOM_DATA, CustomData.of(nbt));
+            setEnabledModelFlag(playerStack, !enabled);
         } else {
-            if (level.isClientSide) return InteractionResultHolder.success(playerStack);
+            if (level.isClientSide()) return InteractionResult.SUCCESS;
             final var inv = new FilterInventory(playerStack);
             final var factory = new MenuProvider() {
                 @Override
-                public @NotNull AbstractContainerMenu createMenu(int syncId, Inventory playerInv, Player player) {
+                public @Nullable AbstractContainerMenu createMenu(int syncId, Inventory playerInv, Player player) {
                     return new ItemFilterScreenHandler(syncId, playerInv, inv);
                 }
 
@@ -57,16 +59,24 @@ public class ItemFilterItem extends Item {
             var handler = (ItemFilterScreenHandler) user.containerMenu;
             handler.setFilterMode(inv.getFilterMode());
         }
-        return InteractionResultHolder.success(playerStack);
+        return InteractionResult.SUCCESS;
+    }
+
+    // Drives the enabled/disabled texture swap via the item-model-definition system
+    // (assets/interactic/items/item_filter.json, a "minecraft:condition" keyed off
+    // "minecraft:custom_model_data" index 0) - ModelPredicateProviderRegistry, which this
+    // used to go through, was removed in 1.21.4.
+    private static void setEnabledModelFlag(ItemStack stack, boolean enabled) {
+        stack.set(DataComponents.CUSTOM_MODEL_DATA, new CustomModelData(List.of(), List.of(enabled), List.of(), List.of()));
     }
 
     public static List<Item> getItemsInFilter(ItemStack stack) {
         var data = stack.get(DataComponents.CUSTOM_DATA);
         if (data == null) return List.of();
-        final var invTag = data.copyTag().getList("Items", Tag.TAG_COMPOUND);
+        final var invTag = data.copyTag().getListOrEmpty("Items");
 
         return invTag.stream()
-                .map(s -> BuiltInRegistries.ITEM.getOptional(ResourceLocation.tryParse(((CompoundTag) s).getString("id"))).orElse(null))
+                .map(s -> BuiltInRegistries.ITEM.getOptional(Identifier.tryParse(((CompoundTag) s).getStringOr("id", ""))).orElse(null))
                 .filter(Objects::nonNull)
                 .toList();
     }
@@ -84,12 +94,12 @@ public class ItemFilterItem extends Item {
         private void readItems() {
             var data = filter.get(DataComponents.CUSTOM_DATA);
             if (data == null) return;
-            var invTag = data.copyTag().getList("Items", Tag.TAG_COMPOUND);
+            var invTag = data.copyTag().getListOrEmpty("Items");
             for (int i = 0; i < invTag.size(); i++) {
                 var compound = (CompoundTag) invTag.get(i);
-                int slot = compound.getByte("Slot") & 0xFF;
+                int slot = compound.getByteOr("Slot", (byte) 0) & 0xFF;
                 if (slot < items.size()) {
-                    var id = ResourceLocation.tryParse(compound.getString("id"));
+                    var id = Identifier.tryParse(compound.getStringOr("id", ""));
                     if (id != null) {
                         BuiltInRegistries.ITEM.getOptional(id).ifPresent(item -> items.set(slot, new ItemStack(item)));
                     }
@@ -105,7 +115,7 @@ public class ItemFilterItem extends Item {
 
         public boolean getFilterMode() {
             var data = filter.get(DataComponents.CUSTOM_DATA);
-            return data != null && data.copyTag().getBoolean("BlockMode");
+            return data != null && data.copyTag().getBooleanOr("BlockMode", false);
         }
 
         @Override

@@ -2,13 +2,13 @@ package interactic.mixin;
 
 import interactic.InteracticInit;
 import interactic.util.Helpers;
-import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -20,8 +20,8 @@ import java.util.List;
 @Mixin(Gui.class)
 public class InGameHudMixin {
 
-    @Inject(method = "renderCrosshair", at = @At("TAIL"))
-    private void renderItemTooltip(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
+    @Inject(method = "extractCrosshair", at = @At("TAIL"))
+    private void renderItemTooltip(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         if (!InteracticInit.getConfig().renderItemTooltips()) return;
 
         final var client = Minecraft.getInstance();
@@ -38,7 +38,11 @@ public class InGameHudMixin {
 
         for (int i = 0, tooltipSize = tooltip.size(); i < tooltipSize; i++) {
             final var text = tooltip.get(i);
-            context.drawString(client.font, text, screenWidth / 2 - client.font.width(text) / 2, screenHeight / 2 + 15 + i * 10, 0xFFFFFF, true);
+            // Note: GuiGraphicsExtractor.text() silently no-ops if the color's alpha byte is 0
+            // (unlike the old DrawContext API, which treated missing alpha as fully opaque) -
+            // 0xFFFFFF has alpha=0x00, so the text was being computed correctly every frame
+            // and then discarded right at the final draw call. Needs an explicit alpha byte.
+            graphics.text(client.font, text, screenWidth / 2 - client.font.width(text) / 2, screenHeight / 2 + 15 + i * 10, 0xFFFFFFFF, true);
         }
     }
 }

@@ -1,19 +1,20 @@
 package interactic.mixin;
 
 import interactic.InteracticInit;
+import interactic.util.Helpers;
 import interactic.util.InteracticItemExtensions;
 import interactic.util.ItemDamageSource;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.entity.EntityTypeTest;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -28,7 +29,7 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
     public abstract ItemStack getItem();
 
     @Shadow
-    public abstract int getAge();
+    private int age;
 
     @Shadow
     @Nullable
@@ -43,8 +44,8 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
     @Unique
     private boolean wasFullPower;
 
-    private ItemEntityMixin(EntityType<?> type, Level world) {
-        super(type, world);
+    private ItemEntityMixin(EntityType<?> type, Level level) {
+        super(type, level);
     }
 
     @Override
@@ -67,13 +68,20 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
         this.wasFullPower = true;
     }
 
+    @Inject(method = "playerTouch", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/item/ItemEntity;getItem()Lnet/minecraft/world/item/ItemStack;", ordinal = 0), cancellable = true)
+    private void controlPickup(Player player, CallbackInfo ci) {
+        if (Helpers.canPlayerPickUpItem(player, (ItemEntity) (Object) this)) return;
+        ci.cancel();
+    }
+
     @Inject(method = "tick", at = @At("TAIL"))
     private void dealThrowingDamage(CallbackInfo ci) {
         if (!InteracticInit.getConfig().itemsActAsProjectiles()) return;
-        if (this.getAge() < 2) return;
+        if (age < 2) return;
 
-        var world = this.level();
-        if (world.isClientSide) return;
+        var level = this.level();
+        if (level.isClientSide()) return;
+        var serverLevel = (ServerLevel) level;
 
         if (this.onGround()) this.wasThrown = false;
         if (!this.wasThrown) return;
@@ -91,20 +99,20 @@ public abstract class ItemEntityMixin extends Entity implements InteracticItemEx
                         .mapToDouble(e -> e.modifier().amount()).sum()
                 : 2;
 
-        final var entities = world.getEntities(EntityTypeTest.forClass(LivingEntity.class), this.getBoundingBox().inflate(0.15), e -> true);
+        final var entities = level.getEntities(EntityTypeTest.forClass(LivingEntity.class), this.getBoundingBox().inflate(0.15), e -> !e.isSpectator());
         if (entities.isEmpty()) return;
 
         final var target = entities.getFirst();
         final var damageSource = new ItemDamageSource((ItemEntity) (Object) this, this.getOwner());
 
-        if (target.hurtTime != 0 || target.isInvulnerableTo(damageSource)) return;
+        if (target.hurtTime != 0 || target.isInvulnerableTo(serverLevel, damageSource)) return;
 
-        target.hurt(damageSource, (float) damage);
+        target.hurtServer(serverLevel, damageSource, (float) damage);
 
         var stack = this.getItem();
         if (stack.isDamageableItem()) {
             stack.setDamageValue(stack.getDamageValue() + 1);
-            if (stack.getDamageValue() >= stack.getMaxDamage()) this.discard();
+            if (stack.getDamageValue() >= stack.getMaxDamage()) this.remove(Entity.RemovalReason.DISCARDED);
         }
     }
 
