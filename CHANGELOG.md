@@ -10,4 +10,5 @@
 
 ## 0.2.2+1.21.1
 
+**Bug fixes**
 - Fixed the Item Filter recipe not registering due to a Minecraft recipe format change
