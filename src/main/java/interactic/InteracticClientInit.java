@@ -4,7 +4,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import interactic.network.PickupPayload;
 import interactic.network.SetFilterModePayload;
 import interactic.util.InteracticRenderState;
-import io.wispforest.owo.config.ui.ConfigScreen;
+import empire.ewlib.config.ui.ConfigScreen;
 import net.minecraft.Util;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -22,7 +22,6 @@ import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
 @Mod(value = InteracticInit.MOD_ID, dist = Dist.CLIENT)
 @EventBusSubscriber(modid = InteracticInit.MOD_ID, value = Dist.CLIENT)
@@ -67,12 +66,12 @@ public class InteracticClientInit {
         event.register(InteracticInit.ITEM_FILTER_MENU.get(), ItemFilterScreen::new);
     }
 
-    @SubscribeEvent
-    static void registerPayloads(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar("1");
-        registrar.playToClient(SetFilterModePayload.TYPE, SetFilterModePayload.STREAM_CODEC, (payload, context) -> context.enqueueWork(() -> {
-            if (!(Minecraft.getInstance().screen instanceof ItemFilterScreen screen)) return;
-            screen.blockMode = payload.mode();
-        }));
+    /**
+     * Client side of {@link SetFilterModePayload}. The payload is registered in {@link InteracticInit},
+     * since a dedicated server also has to know it in order to send it.
+     */
+    static void handleSetFilterMode(SetFilterModePayload payload) {
+        if (!(Minecraft.getInstance().screen instanceof ItemFilterScreen screen)) return;
+        screen.blockMode = payload.mode();
     }
 }

@@ -119,6 +119,11 @@ public class InteracticInit {
             if (!(player.containerMenu instanceof ItemFilterScreenHandler filterHandler)) return;
             filterHandler.setFilterMode(payload.mode());
         }));
+
+        // Registered here instead of in the client-only class, so dedicated servers know the
+        // payload too (they send it). The handler only ever runs on the client.
+        registrar.playToClient(SetFilterModePayload.TYPE, SetFilterModePayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> InteracticClientInit.handleSetFilterMode(payload)));
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {

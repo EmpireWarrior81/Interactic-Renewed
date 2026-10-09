@@ -89,9 +89,9 @@ config="${mod_id}-neoforge.mixins.json"
     side="BOTH"
 
 [[dependencies.${mod_id}]]
-    modId="owo"
+    modId="ewlib"
     type="required"
-    versionRange="[0.12.15,)"
+    versionRange="[0.1.0,)"
     ordering="AFTER"
     side="BOTH"
 
