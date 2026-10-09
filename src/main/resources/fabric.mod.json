@@ -28,18 +28,13 @@
     ]
   },
   "custom": {
-    "modmenu": {
-      "parent": {
-        "id": "interactic",
-        "name": "Interactic Renewed"
-      }
-    }
+    "modmenu": {}
   },
   "depends": {
     "fabricloader": ">=0.19.1",
     "fabric": "*",
     "minecraft": "~1.20.1",
     "java": ">=17",
-    "owo": ">=0.11.2"
+    "ewlib": ">=0.1.0"
   }
 }
