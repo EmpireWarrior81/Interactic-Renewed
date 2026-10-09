@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.2.2+26.1.2
+## 0.2.2+26.1
 
-Initial NeoForge release for Minecraft 26.1.2
+Initial NeoForge release for Minecraft 26.1
 
 **Improvements**
 - Uses EWLIB for the config (bundled inside the mod) instead of owo-lib, so no extra library needs to be installed
