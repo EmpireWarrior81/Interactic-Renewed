@@ -11,7 +11,8 @@ repositories {
 		name = "TerraformersMC"
 		url = "https://maven.terraformersmc.com/"
 	}
-	maven { url "https://maven.wispforest.io/" }
+	// EWLIB, published with `gradlew publishToMavenLocal` in the EWLIB project
+	mavenLocal()
 	maven { name = "JitPack"; url = "https://jitpack.io/" }
 }
 
@@ -23,9 +24,9 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	// owo-lib for configuration
-	annotationProcessor implementation("io.wispforest:owo-lib:${project.owo_version}")
-	include "io.wispforest:owo-sentinel:${project.owo_version}"
+	// EWLIB for configuration, bundled into the jar so players need nothing extra
+	annotationProcessor implementation("empire.empirewarrior:ewlib-fabric:${project.ewlib_version}")
+	include "empire.empirewarrior:ewlib-fabric:${project.ewlib_version}"
 
 	// modmenu integration (dev only)
 	localRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
