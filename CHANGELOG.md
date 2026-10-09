@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2+26.2
+
+**Improvements**
+- Replaced owo-lib with EWLIB for the config. EWLIB is bundled inside the mod, so no extra library needs to be installed anymore
+
 ## 0.2.1+26.2
 
 Initial release for Minecraft 26.2
