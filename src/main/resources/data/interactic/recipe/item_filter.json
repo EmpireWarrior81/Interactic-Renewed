@@ -1,0 +1,25 @@
+{
+  "fabric:load_conditions": [
+    {
+      "condition": "fabric:registry_contains",
+      "registry": "minecraft:item",
+      "values": [
+        "interactic:item_filter"
+      ]
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "c": "minecraft:copper_ingot",
+    "E": "minecraft:ender_pearl"
+  },
+  "pattern": [
+    " c ",
+    "cEc",
+    " c "
+  ],
+  "result": {
+    "id": "interactic:item_filter"
+  }
+}

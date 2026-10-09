@@ -13,6 +13,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.MenuScreens;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.util.Util;
 
 public class InteracticClientInit implements ClientModInitializer {
@@ -36,7 +37,7 @@ public class InteracticClientInit implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (PICKUP_ITEM.consumeClick()) {
                 ClientPlayNetworking.send(new PickupPayload());
-                client.player.swing(InteractionHand.MAIN_HAND);
+                client.player.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, false);
             }
         });
 

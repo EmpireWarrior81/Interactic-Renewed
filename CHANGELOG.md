@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2+26.3
+
+Initial release for Minecraft 26.3
+
 ## 0.2.2+26.2
 
 **Improvements**
