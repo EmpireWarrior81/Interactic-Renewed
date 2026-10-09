@@ -3,7 +3,7 @@ package interactic;
 import interactic.network.PickupPayload;
 import interactic.network.SetFilterModePayload;
 import interactic.util.InteracticRenderState;
-import io.wispforest.owo.config.ui.ConfigScreen;
+import empire.ewlib.config.ui.ConfigScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
