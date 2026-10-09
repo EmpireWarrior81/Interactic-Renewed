@@ -9,10 +9,12 @@ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.component.SwingAnimation;
 import org.jspecify.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -35,6 +37,10 @@ public abstract class MinecraftClientMixin {
     @Shadow
     @Nullable
     public LocalPlayer player;
+
+    @Shadow
+    @Nullable
+    public MultiPlayerGameMode gameMode;
 
     @Shadow
     @Final
@@ -71,30 +77,24 @@ public abstract class MinecraftClientMixin {
 
         if (Helpers.raycastItem(((Minecraft) (Object) this).getCameraEntity(), this.player.getAttributeValue(Attributes.ENTITY_INTERACTION_RANGE)) == null) return;
         ClientPacketDistributor.sendToServer(new PickupPayload());
-        this.player.swing(InteractionHand.MAIN_HAND);
+        this.player.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, false);
         this.rightClickDelay = 4;
         ci.cancel();
     }
 
-    @Redirect(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;drop(Z)Z"))
-    private boolean handleDropPower(LocalPlayer clientPlayerEntity, boolean dropEntireStack) {
-        if (!InteracticInit.getConfig().itemThrowing()) return clientPlayerEntity.drop(dropEntireStack);
-
-        if (!this.hasShiftDown()) {
-            dropPower += 0.075;
-            if (dropPower > 5) dropPower = 5;
-            if (dropPower >= 1.5)
-                ((Minecraft) (Object) this).gui.hud.setOverlayMessage(Component.literal("Power: " + BigDecimal.valueOf(Math.max(dropPower, 1)).setScale(1, RoundingMode.HALF_UP)), false);
-            return false;
-        } else {
-            return clientPlayerEntity.drop(dropEntireStack);
+    // Since 26.3 the drop key goes through MultiPlayerGameMode.dropItem(), which also plays
+    // the arm swing itself; the swingArm option is handled in MultiPlayerGameModeMixin.
+    @Redirect(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;dropItem(Lnet/minecraft/client/player/LocalPlayer;Z)V"))
+    private void handleDropPower(MultiPlayerGameMode gameMode, LocalPlayer clientPlayerEntity, boolean dropEntireStack) {
+        if (!InteracticInit.getConfig().itemThrowing() || this.hasShiftDown()) {
+            gameMode.dropItem(clientPlayerEntity, dropEntireStack);
+            return;
         }
-    }
 
-    @Redirect(method = "handleKeybinds", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;swing(Lnet/minecraft/world/InteractionHand;)V"))
-    private void dontSwingArms(LocalPlayer player, InteractionHand hand) {
-        if (!InteracticInit.getConfig().swingArm()) return;
-        player.swing(hand);
+        dropPower += 0.075;
+        if (dropPower > 5) dropPower = 5;
+        if (dropPower >= 1.5)
+            ((Minecraft) (Object) this).gui.hud.setOverlayMessage(Component.literal("Power: " + BigDecimal.valueOf(Math.max(dropPower, 1)).setScale(1, RoundingMode.HALF_UP)), false);
     }
 
     @Inject(method = "handleKeybinds", at = @At("RETURN"))
@@ -108,10 +108,10 @@ public abstract class MinecraftClientMixin {
                 ClientPacketDistributor.sendToServer(new DropWithPowerPayload(dropPower, dropAll));
 
                 if (!this.player.getInventory().removeFromSelected(dropAll).isEmpty()) {
-                    if (InteracticInit.getConfig().swingArm()) this.player.swing(InteractionHand.MAIN_HAND);
+                    if (InteracticInit.getConfig().swingArm()) this.player.swing(InteractionHand.MAIN_HAND, SwingAnimation.DEFAULT, false);
                 }
-            } else if (this.player.drop(dropAll)) {
-                if (InteracticInit.getConfig().swingArm()) this.player.swing(InteractionHand.MAIN_HAND);
+            } else if (this.gameMode != null) {
+                this.gameMode.dropItem(this.player, dropAll);
             }
 
             dropPower = 0.9f;

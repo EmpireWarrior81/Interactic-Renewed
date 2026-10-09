@@ -185,15 +185,15 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
         poseStack.translate(0, (random.nextDouble() - 0.5) * 0.005, 0);
 
         // Rotate the item by its yaw to get some randomness for the spinning axis
-        poseStack.mulPose(Axis.YP.rotationDegrees(entity.getYRot()));
+        poseStack.rotate(Axis.YP.rotationDegrees(entity.getYRot()));
 
         // Spin the item (already computed above)
-        poseStack.mulPose(Axis.XP.rotation(rotationRad));
+        poseStack.rotate(Axis.XP.rotation(rotationRad));
 
         // If the block is chonky, rotate it randomly
         if (treatAsDepthModel && !isFlatBlock && !InteracticInit.getConfig().blocksLayFlat()) {
-            poseStack.mulPose(Axis.YP.rotationDegrees(this.random.nextFloat() * 45));
-            poseStack.mulPose(Axis.ZP.rotationDegrees(this.random.nextFloat() * 45));
+            poseStack.rotate(Axis.YP.rotationDegrees(this.random.nextFloat() * 45));
+            poseStack.rotate(Axis.ZP.rotationDegrees(this.random.nextFloat() * 45));
         }
 
         // Translate so that the origin gets moved back for stacks with multiple items rendered
@@ -219,7 +219,7 @@ public abstract class ItemEntityRendererMixin extends EntityRenderer<ItemEntity,
                     poseStack.translate(x, y, z);
                 } else {
                     poseStack.translate(0, 0.125f, 0.0D);
-                    poseStack.mulPose(Axis.ZP.rotationDegrees((this.random.nextFloat() - 0.5f)));
+                    poseStack.rotate(Axis.ZP.rotationDegrees((this.random.nextFloat() - 0.5f)));
                     poseStack.translate(0, -0.125f, 0.0D);
                 }
             }

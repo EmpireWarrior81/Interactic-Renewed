@@ -5,6 +5,7 @@
   "client": [
     "InGameHudMixin",
     "MinecraftClientMixin",
+    "MultiPlayerGameModeMixin",
     "ItemEntityRendererMixin",
     "ItemEntityRenderStateMixin"
   ],
@@ -13,7 +14,6 @@
   },
   "mixins": [
     "ItemEntityMixin",
-    "PlayerEntityMixin",
-    "RecipeManagerMixin"
+    "PlayerEntityMixin"
   ]
 }

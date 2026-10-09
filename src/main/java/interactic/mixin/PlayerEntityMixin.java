@@ -45,7 +45,7 @@ public abstract class PlayerEntityMixin implements InteracticPlayerExtension {
             var self = (LivingEntity) (Object) this;
             var velocity = self.getViewVector(0f).scale(this.dropPower * .25f);
             item.setDeltaMovement(velocity);
-            item.hurtMarked = true;
+            item.needsSync = true;
 
             item.setPos(item.getX(), self.getEyeY(), item.getZ());
 

@@ -15,6 +15,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.util.Prediction;
 import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModList;
@@ -125,7 +126,7 @@ public class InteracticInit {
     }
 
     private static void dropSelected(Player player, boolean dropAll) {
-        player.drop(player.getInventory().removeFromSelected(dropAll), true);
+        player.drop(player.getInventory().removeFromSelected(dropAll), true, Prediction.PREDICTED);
     }
 
     public static float getItemRotationSpeedMultiplier() {
