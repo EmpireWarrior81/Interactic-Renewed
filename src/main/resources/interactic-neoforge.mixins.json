@@ -1,11 +1,12 @@
 {
   "required": true,
   "package": "interactic.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_25",
   "client": [
     "InGameHudMixin",
+    "MinecraftClientMixin",
     "ItemEntityRendererMixin",
-    "MinecraftClientMixin"
+    "ItemEntityRenderStateMixin"
   ],
   "injectors": {
     "defaultRequire": 1
@@ -13,7 +14,6 @@
   "mixins": [
     "ItemEntityMixin",
     "PlayerEntityMixin",
-    "PlayerInventoryAccessor",
     "RecipeManagerMixin"
   ]
 }

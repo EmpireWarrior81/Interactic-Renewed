@@ -2,7 +2,6 @@ package interactic.util;
 
 import interactic.InteracticInit;
 import interactic.ItemFilterItem;
-import interactic.mixin.PlayerInventoryAccessor;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -13,15 +12,16 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 
-import java.util.Collection;
+import java.util.stream.StreamSupport;
 
 public class Helpers {
 
     public static ItemEntity raycastItem(Entity camera, double reach) {
         Vec3 normalizedFacing = camera.getViewVector(1.0F);
-        Vec3 denormalizedFacing = camera.getEyePosition(0).add(normalizedFacing.x * reach, normalizedFacing.y * reach, normalizedFacing.z * reach);
+        Vec3 eyePos = camera.getEyePosition(0);
+        Vec3 denormalizedFacing = eyePos.add(normalizedFacing.x * reach, normalizedFacing.y * reach, normalizedFacing.z * reach);
 
-        final EntityHitResult result = ProjectileUtil.getEntityHitResult(camera, camera.getEyePosition(0), denormalizedFacing,
+        final EntityHitResult result = ProjectileUtil.getEntityHitResult(camera, eyePos, denormalizedFacing,
                 camera.getBoundingBox().expandTowards(normalizedFacing.scale(reach)).inflate(1), entity -> entity instanceof ItemEntity, reach * reach);
 
         if (result != null) {
@@ -41,11 +41,11 @@ public class Helpers {
         if (player.isShiftKeyDown()) return true;
 
         if (!InteracticInit.getConfig().autoPickup()) {
-            return item.getTags().contains("interactic.ignore_auto_pickup_rule");
+            return item.entityTags().contains("interactic.ignore_auto_pickup_rule");
         }
         if (!InteracticInit.getConfig().itemFilterEnabled()) return true;
 
-        var filterOptional = ((PlayerInventoryAccessor) player.getInventory()).getCombinedInventory().stream().flatMap(Collection::stream).filter(itemStack -> itemStack.is(InteracticInit.getItemFilter())).findFirst();
+        var filterOptional = StreamSupport.stream(player.getInventory().spliterator(), false).filter(itemStack -> itemStack.is(InteracticInit.getItemFilter())).findFirst();
         if (filterOptional.isEmpty()) return true;
 
         final ItemStack filterStack = filterOptional.get();
@@ -53,9 +53,9 @@ public class Helpers {
         if (filterData == null) return true;
 
         var filterNbt = filterData.copyTag();
-        if (!filterNbt.getBoolean("Enabled")) return true;
+        if (!filterNbt.getBooleanOr("Enabled", false)) return true;
 
-        return filterNbt.getBoolean("BlockMode") != ItemFilterItem.getItemsInFilter(filterStack).contains(item.getItem().getItem());
+        return filterNbt.getBooleanOr("BlockMode", false) != ItemFilterItem.getItemsInFilter(filterStack).contains(item.getItem().getItem());
     }
 
 }
