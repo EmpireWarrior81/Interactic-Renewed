@@ -1,11 +1,11 @@
 package interactic.util;
 
-import blue.endless.jankson.Comment;
+import empire.ewlib.config.annotation.Comment;
 import interactic.InteracticInit;
-import io.wispforest.owo.config.annotation.Config;
-import io.wispforest.owo.config.annotation.Hook;
-import io.wispforest.owo.config.annotation.RestartRequired;
-import io.wispforest.owo.config.annotation.SectionHeader;
+import empire.ewlib.config.annotation.Config;
+import empire.ewlib.config.annotation.Hook;
+import empire.ewlib.config.annotation.RestartRequired;
+import empire.ewlib.config.annotation.SectionHeader;
 
 @Config(name = InteracticInit.MOD_ID, wrapperName = "InteracticConfig")
 public class InteracticConfigModel {
